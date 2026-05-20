@@ -1,6 +1,6 @@
 import React, { useRef, useState, useCallback, useEffect } from 'react';
 import { useZones } from '../hooks/useZones';
-import { useLocalStorage } from '../hooks/useLocalStorage';
+import { useSyncedStorage } from '../hooks/useSyncedStorage';
 import type { GameZone, Polygon } from '../data/zones';
 import { Modal } from '../components/Modal';
 import { DEFAULT_MODAL_CFG } from '../components/ZoneInfo';
@@ -21,7 +21,7 @@ const COLOR_MAP: Record<string, string> = {
 
 export const AdminPage: React.FC = () => {
   const { zones, addZone, removeZone, updateZone, resetZones } = useZones();
-  const [zoneCfgs, setZoneCfgs] = useLocalStorage<Record<string, ModalCfg>>('zone-modal-cfgs', {});
+  const [zoneCfgs, setZoneCfgs] = useSyncedStorage<Record<string, ModalCfg>>('zone-modal-cfgs', {});
   const [previewZoneId, setPreviewZoneId] = useState<string | null>(null);
   const [editingCfg, setEditingCfg] = useState<ModalCfg>(DEFAULT_MODAL_CFG);
 

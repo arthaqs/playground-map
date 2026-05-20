@@ -3,7 +3,7 @@ import { PlayArea } from './PlayArea';
 import { Modal } from './Modal';
 import { usePlayground } from '../hooks/usePlayground';
 import { useZones } from '../hooks/useZones';
-import { useLocalStorage } from '../hooks/useLocalStorage';
+import { useSyncedStorage } from '../hooks/useSyncedStorage';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { DEFAULT_MODAL_CFG } from './ZoneInfo';
 import type { ModalCfg } from './ZoneInfo';
@@ -34,7 +34,7 @@ export const HomePage: React.FC = () => {
     hoverZone,
   } = usePlayground();
 
-  const [zoneCfgs] = useLocalStorage<Record<string, ModalCfg>>('zone-modal-cfgs', {});
+  const [zoneCfgs] = useSyncedStorage<Record<string, ModalCfg>>('zone-modal-cfgs', {});
 
   const selectedZone = useMemo(
     () => zones.find((z) => z.id === selectedZoneId) || null,

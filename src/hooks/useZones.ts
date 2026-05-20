@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { useLocalStorage } from './useLocalStorage';
+import { useSyncedStorage } from './useSyncedStorage';
 import { DEFAULT_ZONES } from '../data/zones';
 import type { GameZone } from '../data/zones';
 
@@ -11,7 +11,7 @@ function migrateZones(raw: unknown[]): GameZone[] {
 }
 
 export function useZones() {
-  const [zones, setZones] = useLocalStorage<GameZone[]>('playground-zones', DEFAULT_ZONES);
+  const [zones, setZones] = useSyncedStorage<GameZone[]>('playground-zones', DEFAULT_ZONES);
   const migratedZones = migrateZones(zones as unknown[]) as GameZone[];
 
   const addZone = useCallback((zone: GameZone) => {
