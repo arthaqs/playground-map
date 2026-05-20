@@ -22,6 +22,18 @@ export function useSyncedStorage<T>(key: string, defaultValue: T): [T, (val: T) 
           const remote = data.value as T;
           setValue(remote);
           localStorage.setItem(key, JSON.stringify(remote));
+        } else {
+          // Supabase empty — push local data up so other devices can sync
+          const raw = localStorage.getItem(key);
+          if (raw) {
+            try {
+              const local = JSON.parse(raw) as T;
+              supabase
+                .from('app_data')
+                .upsert({ key, value: local, updated_at: new Date().toISOString() })
+                .then();
+            } catch {}
+          }
         }
       });
   }, [key]);
