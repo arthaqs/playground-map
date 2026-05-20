@@ -19,6 +19,8 @@
   padding: 32px;
   max-width: 500px;
   width: 90%;
+  max-height: calc(100dvh - 48px);
+  overflow-y: auto;
   box-shadow: 0 32px 80px rgba(0, 0, 0, 0.6);
   position: relative;
   animation: slideIn 0.22s ease-out;

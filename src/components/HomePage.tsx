@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 import { PlayArea } from './PlayArea';
 import { Modal } from './Modal';
 import { usePlayground } from '../hooks/usePlayground';
@@ -22,6 +22,11 @@ const CFG = {
   colorGreen: '#6dd2f3',
 };
 
+const COLOR_MAP: Record<string, string> = {
+  yellow: CFG.colorYellow,
+  purple: CFG.colorGreen,
+};
+
 export const HomePage: React.FC = () => {
   const isMobile = useIsMobile();
   const { zones } = useZones();
@@ -35,6 +40,18 @@ export const HomePage: React.FC = () => {
   } = usePlayground();
 
   const [zoneCfgs] = useSyncedStorage<Record<string, ModalCfg>>('zone-modal-cfgs', {});
+  const [peekZoneId, setPeekZoneId] = useState<string | null>(null);
+
+  const peekZone = useCallback((zoneId: string) => setPeekZoneId(zoneId), []);
+  const closePeek = useCallback(() => setPeekZoneId(null), []);
+  const openModalFromPeek = useCallback(() => {
+    if (peekZoneId) { selectZone(peekZoneId); setPeekZoneId(null); }
+  }, [peekZoneId, selectZone]);
+
+  const peekZoneData = useMemo(
+    () => peekZoneId ? zones.find(z => z.id === peekZoneId) ?? null : null,
+    [peekZoneId, zones]
+  );
 
   const selectedZone = useMemo(
     () => zones.find((z) => z.id === selectedZoneId) || null,
@@ -117,7 +134,7 @@ export const HomePage: React.FC = () => {
           fontWeight: 300,
           letterSpacing: '0.02em',
         }}>
-          Klikni na zónu a zjisti více
+          {isMobile ? 'Klepni na zónu a zjisti více' : 'Klikni na zónu a zjisti více'}
         </p>
       </header>
 
@@ -127,23 +144,24 @@ export const HomePage: React.FC = () => {
             Herní zóny
           </p>
           {zones.map(zone => {
-            const color = zone.color === 'yellow' ? CFG.colorYellow : CFG.colorGreen;
+            const color = COLOR_MAP[zone.color] ?? zone.color;
             const hex = color.replace('#', '');
             const r = parseInt(hex.slice(0, 2), 16);
             const g = parseInt(hex.slice(2, 4), 16);
             const b = parseInt(hex.slice(4, 6), 16);
             const isHovered = zone.id === hoveredZoneId;
             const isSelected = zone.id === selectedZoneId;
-            const active = isHovered || isSelected;
+            const isPeeked = zone.id === peekZoneId;
+            const active = isHovered || isSelected || isPeeked;
             const bg = `rgba(${r},${g},${b},${CFG.bgOpacity})`;
             const glow = `0 0 ${CFG.glowRadius}px rgba(${r},${g},${b},${CFG.glowOpacity})`;
             const dotGlow = `0 0 ${CFG.dotGlow}px 3px rgba(${r},${g},${b},0.8)`;
             return (
               <div
                 key={zone.id}
-                onMouseEnter={() => hoverZone(zone.id)}
-                onMouseLeave={() => hoverZone(null)}
-                onClick={() => selectZone(zone.id)}
+                onMouseEnter={() => !isMobile && hoverZone(zone.id)}
+                onMouseLeave={() => !isMobile && hoverZone(null)}
+                onClick={() => isMobile ? peekZone(zone.id) : selectZone(zone.id)}
                 style={{
                   padding: isMobile ? '8px 12px' : '10px 14px',
                   paddingLeft: active ? `${(isMobile ? 12 : 14) - CFG.borderWidth + 1}px` : isMobile ? '12px' : '14px',
@@ -177,9 +195,9 @@ export const HomePage: React.FC = () => {
         <PlayArea
           zones={zones}
           selectedZoneId={selectedZoneId}
-          hoveredZoneId={hoveredZoneId}
-          onZoneClick={selectZone}
-          onZoneHover={hoverZone}
+          hoveredZoneId={isMobile ? peekZoneId : hoveredZoneId}
+          onZoneClick={isMobile ? peekZone : selectZone}
+          onZoneHover={isMobile ? () => {} : hoverZone}
           mapHoverOpacity={CFG.mapHoverOpacity}
           mapSelectedOpacity={CFG.mapSelectedOpacity}
           mapIdleOpacity={CFG.mapIdleOpacity}
@@ -196,6 +214,71 @@ export const HomePage: React.FC = () => {
         onClose={deselectZone}
         modalCfg={activeModalCfg}
       />
+
+      {/* Mobile peek bottom sheet */}
+      {isMobile && peekZoneData && (
+        <>
+          <div
+            onClick={closePeek}
+            style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.4)' }}
+          />
+          <div style={{
+            position: 'fixed',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            zIndex: 201,
+            backgroundColor: 'var(--bg-card)',
+            borderTop: `2px solid ${COLOR_MAP[peekZoneData.color] ?? peekZoneData.color}`,
+            borderRadius: '16px 16px 0 0',
+            padding: '20px 24px 32px',
+            boxShadow: '0 -16px 48px rgba(0,0,0,0.5)',
+            animation: 'peekIn 0.22s ease-out',
+          }}>
+            <style>{`@keyframes peekIn { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }`}</style>
+            {/* drag handle */}
+            <div style={{ width: '36px', height: '4px', borderRadius: '2px', backgroundColor: 'var(--border)', margin: '0 auto 20px' }} />
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', marginBottom: '12px' }}>
+              <div>
+                <p style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '4px', fontWeight: 500 }}>
+                  Herní zóna
+                </p>
+                <h2 style={{ fontSize: '24px', fontWeight: 700, letterSpacing: '-0.02em', color: COLOR_MAP[peekZoneData.color] ?? peekZoneData.color }}>
+                  {peekZoneData.name}
+                </h2>
+              </div>
+              <button onClick={closePeek} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '20px', cursor: 'pointer', padding: '0 4px', lineHeight: 1, marginTop: '2px' }}>✕</button>
+            </div>
+            <div style={{ display: 'flex', gap: '8px', marginBottom: peekZoneData.description ? '12px' : '20px' }}>
+              <span style={{ fontSize: '13px', color: 'var(--text-muted)', backgroundColor: 'var(--bg-surface)', padding: '4px 10px', borderRadius: '20px', border: '1px solid var(--border)' }}>
+                {peekZoneData.players} hráčů
+              </span>
+            </div>
+            {peekZoneData.description && (
+              <p style={{ fontSize: '14px', color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: '20px' }}>
+                {peekZoneData.description}
+              </p>
+            )}
+            <button
+              onClick={openModalFromPeek}
+              style={{
+                width: '100%',
+                padding: '13px',
+                backgroundColor: COLOR_MAP[peekZoneData.color] ?? peekZoneData.color,
+                color: '#141a16',
+                border: 'none',
+                borderRadius: 'var(--radius)',
+                fontSize: '15px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                letterSpacing: '0.01em',
+              }}
+            >
+              Zobrazit detail
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 };
