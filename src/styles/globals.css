@@ -1,8 +1,16 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
 :root {
-  --color-yellow: #FFC107;
-  --color-purple: #9C27B0;
-  --color-dark: #212121;
-  --color-light: #FAFAFA;
+  --bg-deep: #141a16;
+  --bg-card: #1e2b22;
+  --bg-surface: #243029;
+  --accent: #E8A540;
+  --accent-dim: rgba(232, 165, 64, 0.12);
+  --green: #4A7C59;
+  --text-primary: #F0EDE8;
+  --text-muted: #8A9E91;
+  --border: rgba(74, 124, 89, 0.25);
+  --radius: 4px;
 }
 
 * {
@@ -13,22 +21,16 @@
 
 html, body, #root {
   width: 100%;
-  height: 100%;
-  margin: 0;
-  padding: 0;
+  min-height: 100%;
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  background-color: var(--color-light);
-  color: var(--color-dark);
+  background-color: var(--bg-deep);
+  color: var(--text-primary);
 }
 
-code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
+input::placeholder {
+  color: var(--text-muted);
 }

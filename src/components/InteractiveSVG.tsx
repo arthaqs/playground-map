@@ -1,43 +1,56 @@
 import React from 'react';
-import { ZONES } from '../data/zones';
+import type { GameZone } from '../data/zones';
+
+const DEFAULT_COLORS: Record<string, string> = {
+  yellow: '#E8A540',
+  purple: '#4A7C59',
+};
 
 interface InteractiveSVGProps {
+  zones: GameZone[];
   selectedZoneId: string | null;
   hoveredZoneId: string | null;
   onZoneClick: (zoneId: string) => void;
   onZoneHover: (zoneId: string | null) => void;
+  mapHoverOpacity?: number;
+  mapSelectedOpacity?: number;
+  mapIdleOpacity?: number;
+  mapStrokeWidth?: number;
+  forceHighlight?: boolean;
+  colorYellow?: string;
+  colorGreen?: string;
 }
 
 export const InteractiveSVG: React.FC<InteractiveSVGProps> = ({
-  selectedZoneId,
-  hoveredZoneId,
-  onZoneClick,
-  onZoneHover,
+  zones, selectedZoneId, hoveredZoneId, onZoneClick, onZoneHover,
+  mapHoverOpacity = 0.35, mapSelectedOpacity = 0.55, mapIdleOpacity = 0.15,
+  mapStrokeWidth = 6, forceHighlight = false,
+  colorYellow = DEFAULT_COLORS.yellow, colorGreen = DEFAULT_COLORS.purple,
 }) => {
+  const colorMap: Record<string, string> = { yellow: colorYellow, purple: colorGreen };
   return (
     <>
-      {ZONES.map((zone) => {
+      {zones.map((zone) => {
         const isSelected = zone.id === selectedZoneId;
-        const isHovered = zone.id === hoveredZoneId;
-        const fillColor = zone.color === 'yellow' ? '#FFC107' : '#9C27B0';
-        const opacity = isSelected ? 0.5 : isHovered ? 0.3 : 0.1;
+        const isHovered = forceHighlight || zone.id === hoveredZoneId;
+        const fill = colorMap[zone.color] ?? zone.color;
+        const opacity = isSelected ? mapSelectedOpacity : isHovered ? mapHoverOpacity : mapIdleOpacity;
 
-        return (
+        return (zone.polygons ?? []).map((poly, pi) => (
           <polygon
-            key={zone.id}
-            points={zone.polygon.points.map((p) => `${p[0]},${p[1]}`).join(' ')}
-            fill={fillColor}
+            key={`${zone.id}-${pi}`}
+            points={poly.points.map((p) => `${p[0]},${p[1]}`).join(' ')}
+            fill={fill}
             opacity={opacity}
-            stroke={isSelected ? '#000' : 'none'}
-            strokeWidth={isSelected ? 3 : 0}
+            stroke={isSelected || isHovered ? fill : 'none'}
+            strokeWidth={isSelected ? mapStrokeWidth + 4 : isHovered ? mapStrokeWidth : 0}
+            strokeLinejoin="round"
             onMouseEnter={() => onZoneHover(zone.id)}
             onMouseLeave={() => onZoneHover(null)}
             onClick={() => onZoneClick(zone.id)}
-            style={{
-              transition: 'opacity 0.2s ease, stroke 0.2s ease',
-            }}
+            style={{ transition: 'opacity 0.2s ease', cursor: 'pointer' }}
           />
-        );
+        ));
       })}
     </>
   );
