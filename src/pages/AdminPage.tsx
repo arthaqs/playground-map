@@ -494,7 +494,7 @@ export const AdminPage: React.FC = () => {
           {wizardStep === 'idle' && !isEditing && (
             <>
               <button
-                onClick={() => setWizardStep('details')}
+                onClick={() => setWizardStep('draw')}
                 style={{
                   width: '100%', padding: '14px 16px',
                   backgroundColor: 'var(--accent)', color: 'var(--bg-deep)',
