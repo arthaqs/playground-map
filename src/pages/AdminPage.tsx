@@ -15,8 +15,8 @@ const CROP_W = 1648;
 const CROP_H = 1255;
 
 const COLOR_MAP: Record<string, string> = {
-  yellow: '#E8A540',
-  purple: '#4A7C59',
+  yellow: '#6dd2f3',
+  purple: '#6dd2f3',
 };
 
 type WizardStep = 'idle' | 'draw';
@@ -572,24 +572,6 @@ export const AdminPage: React.FC = () => {
                   Popis
                   <textarea value={zoneDescription} onChange={e => setZoneDescription(e.target.value)} rows={3} placeholder="Krátký popis hry…" style={{ ...inputStyle(true), resize: 'vertical' }} />
                 </label>
-                <div>
-                  <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Barva</span>
-                  <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
-                    {(['yellow', 'purple'] as const).map(c => (
-                      <button key={c} onClick={() => setZoneColor(c)} style={{
-                        flex: 1, padding: '8px',
-                        backgroundColor: zoneColor === c ? `${COLOR_MAP[c]}20` : 'transparent',
-                        border: `2px solid ${zoneColor === c ? COLOR_MAP[c] : 'var(--border)'}`,
-                        borderRadius: 'var(--radius)', cursor: 'pointer',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                        fontSize: '12px', color: zoneColor === c ? COLOR_MAP[c] : 'var(--text-muted)', transition: 'all 0.15s',
-                      }}>
-                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: COLOR_MAP[c], display: 'inline-block', flexShrink: 0 }} />
-                        {c === 'yellow' ? 'Amber' : 'Zelená'}
-                      </button>
-                    ))}
-                  </div>
-                </div>
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: 'auto' }}>
