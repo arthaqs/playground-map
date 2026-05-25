@@ -86,8 +86,17 @@ export const AdminPage: React.FC = () => {
   // Wizard + edit mode
   const [wizardStep, setWizardStep] = useState<WizardStep>('idle');
   const [showSettings, setShowSettings] = useState(false);
+  const [adminHoveredId, setAdminHoveredId] = useState<string | null>(null);
+  const [adminSelectedId, setAdminSelectedId] = useState<string | null>(null);
+  const zoneListRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const [editingZoneId, setEditingZoneId] = useState<string | null>(null);
   const isEditing = editingZoneId !== null;
+
+  useEffect(() => {
+    if (adminSelectedId && zoneListRefs.current[adminSelectedId]) {
+      zoneListRefs.current[adminSelectedId]!.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, [adminSelectedId]);
   const drawingActive = wizardStep === 'draw' || isEditing;
   const fillColor = COLOR_MAP[zoneColor];
 
@@ -327,22 +336,30 @@ export const AdminPage: React.FC = () => {
               >
                 <image href="/hriste1_web.png" x={0} y={0} width={IMG_W} height={IMG_H} />
 
-                {/* Other zones (faded) */}
-                {zones.filter(z => z.id !== editingZoneId).map(zone =>
-                  (zone.polygons ?? []).map((poly, pi) => (
+                {/* Other zones */}
+                {zones.filter(z => z.id !== editingZoneId).map(zone => {
+                  const c = COLOR_MAP[zone.color] ?? zone.color;
+                  const isHov = adminHoveredId === zone.id;
+                  const isSel = adminSelectedId === zone.id;
+                  const active = isHov || isSel;
+                  return (zone.polygons ?? []).map((poly, pi) => (
                     <polygon
                       key={`${zone.id}-${pi}`}
                       points={poly.points.map(p => `${p[0]},${p[1]}`).join(' ')}
-                      fill={COLOR_MAP[zone.color] ?? zone.color}
-                      fillOpacity={0.12}
-                      stroke={COLOR_MAP[zone.color] ?? zone.color}
-                      strokeWidth={3}
+                      fill={c}
+                      fillOpacity={active ? 0.45 : 0.12}
+                      stroke={c}
+                      strokeWidth={active ? 4 : 2}
+                      strokeOpacity={active ? 1 : 0.4}
                       strokeLinejoin="round"
                       vectorEffect="non-scaling-stroke"
-                      style={{ pointerEvents: 'none' }}
+                      style={{ cursor: drawingActive ? 'default' : 'pointer', transition: 'fill-opacity 0.15s, stroke-opacity 0.15s', pointerEvents: drawingActive ? 'none' : 'all' }}
+                      onMouseEnter={() => !drawingActive && setAdminHoveredId(zone.id)}
+                      onMouseLeave={() => !drawingActive && setAdminHoveredId(null)}
+                      onClick={() => { if (!drawingActive) setAdminSelectedId(id => id === zone.id ? null : zone.id); }}
                     />
-                  ))
-                )}
+                  ));
+                })}
 
                 {/* Current zone's finalized polygons */}
                 {zonePolygons.map((poly, pi) => (
@@ -517,12 +534,20 @@ export const AdminPage: React.FC = () => {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   {zones.map(zone => {
                     const c = COLOR_MAP[zone.color] ?? zone.color;
+                    const isSelected = adminSelectedId === zone.id;
+                    const isHovered = adminHoveredId === zone.id;
                     return (
-                      <div key={zone.id} style={{
-                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                        padding: '10px 12px', backgroundColor: 'var(--bg-surface)',
-                        borderRadius: 'var(--radius)', border: '1px solid var(--border)',
-                      }}>
+                      <div
+                        key={zone.id}
+                        ref={el => { zoneListRefs.current[zone.id] = el; }}
+                        style={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                          padding: '10px 12px',
+                          backgroundColor: isSelected ? `rgba(109,210,243,0.12)` : isHovered ? `rgba(109,210,243,0.06)` : 'var(--bg-surface)',
+                          borderRadius: 'var(--radius)',
+                          border: `1px solid ${isSelected ? c : isHovered ? `rgba(109,210,243,0.3)` : 'var(--border)'}`,
+                          transition: 'all 0.15s',
+                        }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
                           <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: c, flexShrink: 0, display: 'inline-block' }} />
                           <div style={{ minWidth: 0 }}>
