@@ -85,6 +85,7 @@ export const AdminPage: React.FC = () => {
 
   // Wizard + edit mode
   const [wizardStep, setWizardStep] = useState<WizardStep>('idle');
+  const [showModalCfg, setShowModalCfg] = useState(false);
   const [editingZoneId, setEditingZoneId] = useState<string | null>(null);
   const isEditing = editingZoneId !== null;
   const drawingActive = wizardStep === 'draw' || isEditing;
@@ -672,7 +673,15 @@ export const AdminPage: React.FC = () => {
         modalCfg={editingCfg}
       />
 
-      <div style={{ position: 'fixed', bottom: '16px', right: '16px', backgroundColor: '#1e2b22', border: '1px solid #4A7C59', borderRadius: '8px', padding: '16px', width: '250px', zIndex: 1001, fontSize: '12px', color: '#F0EDE8', boxShadow: '0 8px 32px rgba(0,0,0,0.6)' }}>
+      <div style={{ position: 'fixed', bottom: '16px', right: '16px', zIndex: 1001 }}>
+        <button
+          onClick={() => setShowModalCfg(v => !v)}
+          style={{ display: 'block', marginLeft: 'auto', marginBottom: showModalCfg ? '8px' : 0, padding: '6px 14px', backgroundColor: showModalCfg ? '#4A7C59' : '#1e2b22', border: '1px solid #4A7C59', borderRadius: '6px', color: '#F0EDE8', fontSize: '12px', cursor: 'pointer', fontWeight: 600 }}
+        >
+          ⚙ Modal cfg {showModalCfg ? '▲' : '▼'}
+        </button>
+      </div>
+      <div style={{ display: showModalCfg ? 'block' : 'none', position: 'fixed', bottom: '52px', right: '16px', backgroundColor: '#1e2b22', border: '1px solid #4A7C59', borderRadius: '8px', padding: '16px', width: '250px', zIndex: 1000, fontSize: '12px', color: '#F0EDE8', boxShadow: '0 8px 32px rgba(0,0,0,0.6)' }}>
         <p style={{ fontWeight: 700, fontSize: '11px', letterSpacing: '0.12em', textTransform: 'uppercase', color: previewZoneId ? '#E8A540' : '#8A9E91', margin: '0 0 12px' }}>
           {previewZoneId ? (zones.find(z => z.id === previewZoneId)?.name ?? 'Modal cfg') : 'Modal cfg — vyber zónu 👁'}
         </p>
