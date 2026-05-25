@@ -19,7 +19,7 @@ const COLOR_MAP: Record<string, string> = {
   purple: '#4A7C59',
 };
 
-type WizardStep = 'idle' | 'details' | 'draw';
+type WizardStep = 'idle' | 'draw';
 
 export const AdminPage: React.FC = () => {
   const { zones, addZone, removeZone, updateZone, resetZones } = useZones();
@@ -245,7 +245,6 @@ export const AdminPage: React.FC = () => {
   const currentValid = points.length >= 3 && (isEditing || isClosed);
   const totalPolygons = zonePolygons.length + (currentValid ? 1 : 0);
   const canSave = !!zoneName && totalPolygons >= 1;
-  const detailsValid = zoneName.trim().length > 0;
 
   const pointsStr = points.map(p => `${p[0]},${p[1]}`).join(' ');
 
@@ -288,7 +287,7 @@ export const AdminPage: React.FC = () => {
           <>
             <span style={{ color: 'var(--border)', userSelect: 'none' }}>|</span>
             <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-              {isEditing ? `Editace: ${zones.find(z => z.id === editingZoneId)?.name}` : wizardStep === 'details' ? 'Nová hra — detaily' : `Nová hra — oblast · ${zoneName}`}
+              {isEditing ? `Editace: ${zones.find(z => z.id === editingZoneId)?.name}` : 'Nová hra'}
             </span>
           </>
         )}
@@ -546,17 +545,19 @@ export const AdminPage: React.FC = () => {
             </>
           )}
 
-          {/* === STEP 1: DETAILS === */}
-          {wizardStep === 'details' && !isEditing && (
+          {/* === DRAW (new or edit) === */}
+          {wizardStep === 'draw' && (
             <>
               <div>
-                <p style={{ fontSize: '11px', color: 'var(--text-muted)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '4px' }}>Krok 1 / 2</p>
-                <h2 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>Detaily hry</h2>
+                <h2 style={{ fontSize: '16px', fontWeight: 700, color: isEditing ? 'var(--accent)' : 'var(--text-primary)' }}>
+                  {isEditing ? `Editace: ${zones.find(z => z.id === editingZoneId)?.name}` : 'Nová hra'}
+                </h2>
               </div>
+
               <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                 <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
                   Název *
-                  <input value={zoneName} onChange={e => setZoneName(e.target.value)} placeholder="Twister, Skákačka…" style={inputStyle(true)} autoFocus />
+                  <input value={zoneName} onChange={e => setZoneName(e.target.value)} placeholder="Twister, Skákačka…" style={inputStyle(true)} autoFocus={!isEditing} />
                 </label>
                 <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
                   Počet hráčů
@@ -585,62 +586,6 @@ export const AdminPage: React.FC = () => {
                   </div>
                 </div>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: 'auto' }}>
-                <button
-                  onClick={() => detailsValid && setWizardStep('draw')}
-                  disabled={!detailsValid}
-                  style={{
-                    padding: '12px 16px', backgroundColor: detailsValid ? fillColor : 'transparent',
-                    color: detailsValid ? 'var(--bg-deep)' : 'var(--text-muted)',
-                    border: `1px solid ${detailsValid ? fillColor : 'var(--border)'}`,
-                    borderRadius: 'var(--radius)', fontSize: '14px', fontWeight: 700,
-                    cursor: detailsValid ? 'pointer' : 'not-allowed', opacity: detailsValid ? 1 : 0.5,
-                  }}
-                >
-                  Nakreslit na mapě →
-                </button>
-                <button onClick={resetEditor} style={btnBase}>Zrušit</button>
-              </div>
-            </>
-          )}
-
-          {/* === STEP 2: DRAW (new) OR EDIT === */}
-          {(wizardStep === 'draw') && (
-            <>
-              <div>
-                {!isEditing && <p style={{ fontSize: '11px', color: 'var(--text-muted)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '4px' }}>Krok 2 / 2</p>}
-                <h2 style={{ fontSize: '16px', fontWeight: 700, color: isEditing ? 'var(--accent)' : 'var(--text-primary)' }}>
-                  {isEditing ? `Editace: ${zones.find(z => z.id === editingZoneId)?.name}` : 'Nakresli oblast'}
-                </h2>
-                {!isEditing && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px' }}>
-                    <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: fillColor, display: 'inline-block' }} />
-                    <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>{zoneName}</span>
-                    <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>· {zonePlayers} hráčů</span>
-                  </div>
-                )}
-              </div>
-
-              {isEditing && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                  <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                    Název
-                    <input value={zoneName} onChange={e => setZoneName(e.target.value)} style={inputStyle(true)} />
-                  </label>
-                  <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                    Počet hráčů
-                    <input type="number" min={1} value={zonePlayers} onChange={e => setZonePlayers(Number(e.target.value))} style={inputStyle(true)} />
-                  </label>
-                  <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                    Popis
-                    <textarea value={zoneDescription} onChange={e => setZoneDescription(e.target.value)} rows={3} style={{ ...inputStyle(true), resize: 'vertical' }} />
-                  </label>
-                </div>
-              )}
-
-              <div style={{ fontSize: '13px', color: 'var(--text-muted)', backgroundColor: 'var(--bg-surface)', borderRadius: '6px', padding: '10px 14px', lineHeight: 1.6 }}>
-                Klikej body na mapě v pořadí → uzavři oblast → ulož.
-              </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: 'auto' }}>
                 <button
@@ -656,9 +601,6 @@ export const AdminPage: React.FC = () => {
                 >
                   {isEditing ? 'Uložit změny' : 'Uložit hru'}
                 </button>
-                {!isEditing && (
-                  <button onClick={() => setWizardStep('details')} style={btnBase}>← Zpět k detailům</button>
-                )}
                 <button onClick={resetEditor} style={btnBase}>{isEditing ? 'Zrušit editaci' : 'Zrušit'}</button>
               </div>
             </>
