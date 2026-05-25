@@ -12,6 +12,7 @@ export function useSyncedStorage<T>(key: string, defaultValue: T): [T, (val: T) 
   });
 
   useEffect(() => {
+    if (!supabase) return;
     supabase
       .from('app_data')
       .select('value')
@@ -23,12 +24,11 @@ export function useSyncedStorage<T>(key: string, defaultValue: T): [T, (val: T) 
           setValue(remote);
           localStorage.setItem(key, JSON.stringify(remote));
         } else {
-          // Supabase empty — push local data up so other devices can sync
           const raw = localStorage.getItem(key);
           if (raw) {
             try {
               const local = JSON.parse(raw) as T;
-              supabase
+              supabase!
                 .from('app_data')
                 .upsert({ key, value: local, updated_at: new Date().toISOString() })
                 .then();
@@ -41,10 +41,12 @@ export function useSyncedStorage<T>(key: string, defaultValue: T): [T, (val: T) 
   const set = useCallback((val: T) => {
     setValue(val);
     localStorage.setItem(key, JSON.stringify(val));
-    supabase
-      .from('app_data')
-      .upsert({ key, value: val, updated_at: new Date().toISOString() })
-      .then();
+    if (supabase) {
+      supabase
+        .from('app_data')
+        .upsert({ key, value: val, updated_at: new Date().toISOString() })
+        .then();
+    }
   }, [key]);
 
   return [value, set];
