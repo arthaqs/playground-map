@@ -356,7 +356,7 @@ export const AdminPage: React.FC = () => {
                       style={{ cursor: drawingActive ? 'default' : 'pointer', transition: 'fill-opacity 0.15s, stroke-opacity 0.15s', pointerEvents: drawingActive ? 'none' : 'all' }}
                       onMouseEnter={() => !drawingActive && setAdminHoveredId(zone.id)}
                       onMouseLeave={() => !drawingActive && setAdminHoveredId(null)}
-                      onClick={() => { if (!drawingActive) setAdminSelectedId(id => id === zone.id ? null : zone.id); }}
+                      onClick={() => { if (!drawingActive) { setAdminSelectedId(zone.id); setPreviewZoneId(id => id === zone.id ? null : zone.id); } }}
                     />
                   ));
                 })}
