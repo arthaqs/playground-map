@@ -625,6 +625,10 @@ export const AdminPage: React.FC = () => {
         isOpen={previewZoneId !== null}
         onClose={() => setPreviewZoneId(null)}
         modalCfg={editingCfg}
+        onEdit={() => {
+          const zone = zones.find(z => z.id === previewZoneId);
+          if (zone) { setPreviewZoneId(null); startEditing(zone); }
+        }}
       />
 
       {/* Settings drawer */}
