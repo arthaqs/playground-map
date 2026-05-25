@@ -85,7 +85,7 @@ export const AdminPage: React.FC = () => {
 
   // Wizard + edit mode
   const [wizardStep, setWizardStep] = useState<WizardStep>('idle');
-  const [showModalCfg, setShowModalCfg] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [editingZoneId, setEditingZoneId] = useState<string | null>(null);
   const isEditing = editingZoneId !== null;
   const drawingActive = wizardStep === 'draw' || isEditing;
@@ -291,6 +291,11 @@ export const AdminPage: React.FC = () => {
             </span>
           </>
         )}
+        <button
+          onClick={() => setShowSettings(v => !v)}
+          style={{ marginLeft: 'auto', background: 'none', border: '1px solid var(--border)', borderRadius: '6px', color: showSettings ? 'var(--accent)' : 'var(--text-muted)', fontSize: '16px', cursor: 'pointer', padding: '4px 10px', lineHeight: 1 }}
+          title="Nastavení"
+        >⚙</button>
       </nav>
 
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
@@ -615,15 +620,29 @@ export const AdminPage: React.FC = () => {
         modalCfg={editingCfg}
       />
 
-      <div style={{ position: 'fixed', bottom: '16px', right: '16px', zIndex: 1001 }}>
-        <button
-          onClick={() => setShowModalCfg(v => !v)}
-          style={{ display: 'block', marginLeft: 'auto', marginBottom: showModalCfg ? '8px' : 0, padding: '6px 14px', backgroundColor: showModalCfg ? '#4A7C59' : '#1e2b22', border: '1px solid #4A7C59', borderRadius: '6px', color: '#F0EDE8', fontSize: '12px', cursor: 'pointer', fontWeight: 600 }}
-        >
-          ⚙ Modal cfg {showModalCfg ? '▲' : '▼'}
-        </button>
-      </div>
-      <div style={{ display: showModalCfg ? 'block' : 'none', position: 'fixed', bottom: '52px', right: '16px', backgroundColor: '#1e2b22', border: '1px solid #4A7C59', borderRadius: '8px', padding: '16px', width: '250px', zIndex: 1000, fontSize: '12px', color: '#F0EDE8', boxShadow: '0 8px 32px rgba(0,0,0,0.6)' }}>
+      {/* Settings drawer */}
+      {showSettings && (
+        <div onClick={() => setShowSettings(false)} style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.4)' }} />
+      )}
+      <div style={{
+        position: 'fixed', top: 0, right: 0, bottom: 0, zIndex: 201,
+        width: '300px',
+        backgroundColor: '#1e2b22',
+        borderLeft: '1px solid #4A7C59',
+        padding: '24px 20px',
+        overflowY: 'auto',
+        transform: showSettings ? 'translateX(0)' : 'translateX(100%)',
+        transition: 'transform 0.25s ease',
+        fontSize: '12px', color: '#F0EDE8',
+        boxShadow: showSettings ? '-8px 0 32px rgba(0,0,0,0.5)' : 'none',
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+          <span style={{ fontWeight: 700, fontSize: '13px', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#E8A540' }}>Nastavení</span>
+          <button onClick={() => setShowSettings(false)} style={{ background: 'none', border: 'none', color: '#8A9E91', fontSize: '20px', cursor: 'pointer', lineHeight: 1 }}>×</button>
+        </div>
+        <p style={{ fontWeight: 700, fontSize: '11px', letterSpacing: '0.12em', textTransform: 'uppercase', color: previewZoneId ? '#E8A540' : '#8A9E91', margin: '0 0 12px' }}>
+          {previewZoneId ? (zones.find(z => z.id === previewZoneId)?.name ?? 'Modal cfg') : 'Modal cfg — vyber zónu 👁'}
+        </p>
         <p style={{ fontWeight: 700, fontSize: '11px', letterSpacing: '0.12em', textTransform: 'uppercase', color: previewZoneId ? '#E8A540' : '#8A9E91', margin: '0 0 12px' }}>
           {previewZoneId ? (zones.find(z => z.id === previewZoneId)?.name ?? 'Modal cfg') : 'Modal cfg — vyber zónu 👁'}
         </p>
