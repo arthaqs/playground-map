@@ -372,9 +372,27 @@ export const AdminPage: React.FC = () => {
                   </g>
                 ))}
 
-                {/* New polygon preview */}
-                {!isClosed && previewStr && points.length >= 2 && (
-                  <polygon points={previewStr} fill="none" stroke={fillColor} strokeWidth={8} strokeDasharray="24 14" strokeLinejoin="round" style={{ pointerEvents: 'none' }} />
+                {/* Polyline — placed points in order */}
+                {!isClosed && points.length >= 2 && (
+                  <polyline points={pointsStr} fill="none" stroke={fillColor} strokeWidth={6} strokeOpacity={0.8} strokeLinejoin="round" style={{ pointerEvents: 'none' }} />
+                )}
+                {/* Next edge preview — last point → cursor */}
+                {!isClosed && mousePos && points.length >= 1 && (
+                  <line
+                    x1={points[points.length - 1][0]} y1={points[points.length - 1][1]}
+                    x2={mousePos[0]} y2={mousePos[1]}
+                    stroke={fillColor} strokeWidth={4} strokeDasharray="16 8" strokeOpacity={0.6}
+                    style={{ pointerEvents: 'none' }}
+                  />
+                )}
+                {/* Close-preview — last point → first point when near */}
+                {!isClosed && nearFirst && points.length >= 3 && (
+                  <line
+                    x1={points[points.length - 1][0]} y1={points[points.length - 1][1]}
+                    x2={points[0][0]} y2={points[0][1]}
+                    stroke={fillColor} strokeWidth={5} strokeDasharray="12 6" strokeOpacity={0.9}
+                    style={{ pointerEvents: 'none' }}
+                  />
                 )}
 
                 {/* Current polygon (new or editing) */}
@@ -404,15 +422,19 @@ export const AdminPage: React.FC = () => {
                   );
                 })}
 
-                {/* New polygon mode: points */}
+                {/* New polygon mode: numbered points */}
                 {!isClosed && points.map((p, i) => {
                   const isFirst = i === 0;
+                  const isLast = i === points.length - 1;
                   const glow = isFirst && nearFirst;
                   return (
                     <g key={i} style={{ pointerEvents: 'none' }}>
-                      {glow && <circle cx={p[0]} cy={p[1]} r={55 / scale} fill={fillColor} opacity={0.18} />}
-                      <circle cx={p[0]} cy={p[1]} r={(isFirst ? 18 : 12) / scale} fill={isFirst ? fillColor : '#141a16'} stroke={fillColor} strokeWidth={5 / scale} />
-                      {isFirst && <text x={p[0]} y={p[1] + 6 / scale} textAnchor="middle" fontSize={17 / scale} fill="#141a16" fontWeight="bold" style={{ userSelect: 'none' }}>✓</text>}
+                      {glow && <circle cx={p[0]} cy={p[1]} r={55 / scale} fill={fillColor} opacity={0.22} />}
+                      <circle cx={p[0]} cy={p[1]} r={(isFirst ? 18 : 14) / scale} fill={isFirst ? fillColor : isLast ? fillColor : '#141a16'} fillOpacity={isFirst ? 1 : isLast ? 0.3 : 1} stroke={fillColor} strokeWidth={5 / scale} />
+                      {isFirst
+                        ? <text x={p[0]} y={p[1] + 6 / scale} textAnchor="middle" fontSize={16 / scale} fill="#141a16" fontWeight="bold" style={{ userSelect: 'none' }}>✓</text>
+                        : <text x={p[0]} y={p[1] + 5 / scale} textAnchor="middle" fontSize={13 / scale} fill={fillColor} fontWeight="bold" style={{ userSelect: 'none' }}>{i + 1}</text>
+                      }
                     </g>
                   );
                 })}

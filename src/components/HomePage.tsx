@@ -16,9 +16,9 @@ const CFG = {
   dotGlow: 8,
   mapHoverOpacity: 0.83,
   mapSelectedOpacity: 0.59,
-  mapIdleOpacity: 0.22,
+  mapIdleOpacity: 0.30,
   mapStrokeWidth: 10,
-  colorYellow: '#e8a540',
+  colorYellow: '#6dd2f3',
   colorGreen: '#6dd2f3',
 };
 
@@ -26,6 +26,15 @@ const COLOR_MAP: Record<string, string> = {
   yellow: CFG.colorYellow,
   purple: CFG.colorGreen,
 };
+
+function hexToRgb(hex: string) {
+  const h = hex.replace('#', '');
+  return {
+    r: parseInt(h.slice(0, 2), 16),
+    g: parseInt(h.slice(2, 4), 16),
+    b: parseInt(h.slice(4, 6), 16),
+  };
+}
 
 export const HomePage: React.FC = () => {
   const isMobile = useIsMobile();
@@ -41,6 +50,7 @@ export const HomePage: React.FC = () => {
 
   const [zoneCfgs] = useSyncedStorage<Record<string, ModalCfg>>('zone-modal-cfgs', {});
   const [peekZoneId, setPeekZoneId] = useState<string | null>(null);
+  const [showOutlines, setShowOutlines] = useState(true);
 
   const peekZone = useCallback((zoneId: string) => setPeekZoneId(zoneId), []);
   const closePeek = useCallback(() => setPeekZoneId(null), []);
@@ -107,7 +117,7 @@ export const HomePage: React.FC = () => {
         </a>
       </nav>
 
-      <header style={{ padding: isMobile ? '32px 16px 24px' : '72px 32px 48px', textAlign: 'center' }}>
+      <header style={{ padding: isMobile ? '24px 16px 16px' : '72px 32px 48px', textAlign: 'center' }}>
         <p style={{
           fontSize: '11px',
           letterSpacing: '0.22em',
@@ -134,64 +144,79 @@ export const HomePage: React.FC = () => {
           fontWeight: 300,
           letterSpacing: '0.02em',
         }}>
-          {isMobile ? 'Klepni na zónu a zjisti více' : 'Klikni na zónu a zjisti více'}
+          Vyber si hru z menu nebo na mapě
         </p>
       </header>
 
-      <main style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'center', alignItems: isMobile ? 'center' : 'flex-start', gap: isMobile ? '16px' : '24px', padding: isMobile ? '0 12px 60px' : '0 32px 100px' }}>
-        <div style={isMobile ? { width: '100%', display: 'flex', flexDirection: 'row', gap: '8px', overflowX: 'auto', paddingBottom: '4px' } : { width: '220px', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          <p style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '4px' }}>
-            Herní zóny
-          </p>
-          {zones.map(zone => {
-            const color = COLOR_MAP[zone.color] ?? zone.color;
-            const hex = color.replace('#', '');
-            const r = parseInt(hex.slice(0, 2), 16);
-            const g = parseInt(hex.slice(2, 4), 16);
-            const b = parseInt(hex.slice(4, 6), 16);
-            const isHovered = zone.id === hoveredZoneId;
-            const isSelected = zone.id === selectedZoneId;
-            const isPeeked = zone.id === peekZoneId;
-            const active = isHovered || isSelected || isPeeked;
-            const bg = `rgba(${r},${g},${b},${CFG.bgOpacity})`;
-            const glow = `0 0 ${CFG.glowRadius}px rgba(${r},${g},${b},${CFG.glowOpacity})`;
-            const dotGlow = `0 0 ${CFG.dotGlow}px 3px rgba(${r},${g},${b},0.8)`;
-            return (
-              <div
-                key={zone.id}
-                onMouseEnter={() => !isMobile && hoverZone(zone.id)}
-                onMouseLeave={() => !isMobile && hoverZone(null)}
-                onClick={() => isMobile ? peekZone(zone.id) : selectZone(zone.id)}
-                style={{
-                  padding: isMobile ? '8px 12px' : '10px 14px',
-                  paddingLeft: active ? `${(isMobile ? 12 : 14) - CFG.borderWidth + 1}px` : isMobile ? '12px' : '14px',
-                  flexShrink: isMobile ? 0 : undefined,
-                  backgroundColor: active ? bg : 'var(--bg-surface)',
-                  border: `1px solid ${active ? color : 'var(--border)'}`,
-                  borderLeft: active ? `${CFG.borderWidth}px solid ${color}` : `1px solid var(--border)`,
-                  borderRadius: 'var(--radius)',
-                  cursor: 'pointer',
-                  transition: 'all 0.15s',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                  boxShadow: active ? glow : 'none',
-                }}
+      <main style={{
+        display: 'flex',
+        flexDirection: isMobile ? 'column' : 'row',
+        justifyContent: 'center',
+        alignItems: isMobile ? 'center' : 'flex-start',
+        gap: isMobile ? '12px' : '24px',
+        padding: isMobile ? '0 12px 60px' : '0 32px 100px',
+      }}>
+        {/* Desktop sidebar */}
+        {!isMobile && (
+          <div style={{ width: '220px', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+              <p style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
+                Hry
+              </p>
+              <button
+                onClick={() => setShowOutlines(v => !v)}
+                title={showOutlines ? 'Skrýt zóny na mapě' : 'Zobrazit zóny na mapě'}
+                style={{ background: 'none', border: `1px solid ${showOutlines ? 'var(--accent)' : 'var(--border)'}`, borderRadius: '4px', color: showOutlines ? 'var(--accent)' : 'var(--text-muted)', fontSize: '14px', cursor: 'pointer', padding: '3px 9px', lineHeight: 1.5 }}
               >
-                <span style={{ width: '9px', height: '9px', borderRadius: '50%', backgroundColor: color, flexShrink: 0, display: 'inline-block', boxShadow: active ? dotGlow : 'none', transition: 'box-shadow 0.15s' }} />
-                <div style={{ minWidth: 0 }}>
-                  <p style={{ fontSize: '13px', fontWeight: active ? 700 : 600, color: active ? color : 'var(--text-primary)', transition: 'color 0.15s', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {zone.name}
-                  </p>
-                  <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                    {zone.players} hráčů
-                  </p>
+                {showOutlines ? '👁' : '🙈'}
+              </button>
+            </div>
+            {zones.map(zone => {
+              const color = COLOR_MAP[zone.color] ?? zone.color;
+              const { r, g, b } = hexToRgb(color);
+              const isHovered = zone.id === hoveredZoneId;
+              const isSelected = zone.id === selectedZoneId;
+              const active = isHovered || isSelected;
+              const bg = `rgba(${r},${g},${b},${CFG.bgOpacity})`;
+              const glow = `0 0 ${CFG.glowRadius}px rgba(${r},${g},${b},${CFG.glowOpacity})`;
+              const dotGlow = `0 0 ${CFG.dotGlow}px 3px rgba(${r},${g},${b},0.8)`;
+              return (
+                <div
+                  key={zone.id}
+                  onMouseEnter={() => hoverZone(zone.id)}
+                  onMouseLeave={() => hoverZone(null)}
+                  onClick={() => selectZone(zone.id)}
+                  style={{
+                    padding: '10px 14px',
+                    paddingLeft: active ? `${14 - CFG.borderWidth + 1}px` : '14px',
+                    backgroundColor: active ? bg : 'var(--bg-surface)',
+                    border: `1px solid ${active ? color : 'var(--border)'}`,
+                    borderLeft: active ? `${CFG.borderWidth}px solid ${color}` : `1px solid var(--border)`,
+                    borderRadius: 'var(--radius)',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    boxShadow: active ? glow : 'none',
+                  }}
+                >
+                  <span style={{ width: '9px', height: '9px', borderRadius: '50%', backgroundColor: color, flexShrink: 0, display: 'inline-block', boxShadow: active ? dotGlow : 'none', transition: 'box-shadow 0.15s' }} />
+                  <div style={{ minWidth: 0 }}>
+                    <p style={{ fontSize: '13px', fontWeight: active ? 700 : 600, color: active ? color : 'var(--text-primary)', transition: 'color 0.15s', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {zone.name}
+                    </p>
+                    <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                      {zone.players} hráčů
+                    </p>
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
 
+        {/* Map */}
         <PlayArea
           zones={zones}
           selectedZoneId={selectedZoneId}
@@ -204,7 +229,86 @@ export const HomePage: React.FC = () => {
           mapStrokeWidth={CFG.mapStrokeWidth}
           colorYellow={CFG.colorYellow}
           colorGreen={CFG.colorGreen}
+          showOutlines={showOutlines}
         />
+
+        {/* Mobile: zones grid */}
+        {isMobile && (
+          <div style={{ width: '100%' }}>
+            {/* Map outline toggle — big, finger-friendly */}
+            <button
+              onClick={() => setShowOutlines(v => !v)}
+              style={{
+                width: '100%',
+                padding: '18px 20px',
+                marginBottom: '16px',
+                backgroundColor: showOutlines ? 'rgba(232,165,64,0.10)' : 'var(--bg-surface)',
+                border: `2px solid ${showOutlines ? 'var(--accent)' : 'var(--border)'}`,
+                borderRadius: '14px',
+                color: showOutlines ? 'var(--accent)' : 'var(--text-muted)',
+                fontSize: '17px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '10px',
+                letterSpacing: '0.01em',
+              }}
+            >
+              <span style={{ fontSize: '22px' }}>{showOutlines ? '👁' : '🙈'}</span>
+              {showOutlines ? 'Zóny na mapě: ZAP' : 'Zóny na mapě: VYP'}
+            </button>
+
+            <p style={{ fontSize: '13px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '10px' }}>
+              Hry
+            </p>
+
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              gap: '10px',
+            }}>
+              {zones.map(zone => {
+                const color = COLOR_MAP[zone.color] ?? zone.color;
+                const { r, g, b } = hexToRgb(color);
+                const isActive = zone.id === peekZoneId;
+                return (
+                  <div
+                    key={zone.id}
+                    onClick={() => peekZone(zone.id)}
+                    style={{
+                      backgroundColor: isActive ? `rgba(${r},${g},${b},0.22)` : 'var(--bg-surface)',
+                      border: `${isActive ? 2 : 1}px solid ${isActive ? color : 'var(--border)'}`,
+                      borderTop: `${isActive ? 5 : 4}px solid ${color}`,
+                      borderRadius: '10px',
+                      padding: '14px 14px 12px',
+                      cursor: 'pointer',
+                      minHeight: '90px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'space-between',
+                      gap: '8px',
+                      transition: 'all 0.15s',
+                      boxShadow: isActive
+                        ? `0 0 0 2px rgba(${r},${g},${b},0.5), 0 4px 20px rgba(${r},${g},${b},0.35)`
+                        : 'none',
+                      transform: isActive ? 'scale(1.03)' : 'scale(1)',
+                    }}
+                  >
+                    <p style={{ fontSize: '16px', fontWeight: 700, color: isActive ? color : 'var(--text-primary)', lineHeight: 1.2 }}>
+                      {zone.name}
+                    </p>
+                    <p style={{ fontSize: '13px', color: isActive ? `rgba(${r},${g},${b},0.8)` : 'var(--text-muted)', fontWeight: 500 }}>
+                      {zone.players} hráčů
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {!isMobile && <div style={{ width: '220px', flexShrink: 0 }} />}
       </main>
 
@@ -236,7 +340,6 @@ export const HomePage: React.FC = () => {
             animation: 'peekIn 0.22s ease-out',
           }}>
             <style>{`@keyframes peekIn { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }`}</style>
-            {/* drag handle */}
             <div style={{ width: '36px', height: '4px', borderRadius: '2px', backgroundColor: 'var(--border)', margin: '0 auto 20px' }} />
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', marginBottom: '12px' }}>
               <div>
@@ -255,27 +358,10 @@ export const HomePage: React.FC = () => {
               </span>
             </div>
             {peekZoneData.description && (
-              <p style={{ fontSize: '14px', color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: '20px' }}>
+              <p style={{ fontSize: '14px', color: 'var(--text-muted)', lineHeight: 1.6 }}>
                 {peekZoneData.description}
               </p>
             )}
-            <button
-              onClick={openModalFromPeek}
-              style={{
-                width: '100%',
-                padding: '13px',
-                backgroundColor: COLOR_MAP[peekZoneData.color] ?? peekZoneData.color,
-                color: '#141a16',
-                border: 'none',
-                borderRadius: 'var(--radius)',
-                fontSize: '15px',
-                fontWeight: 700,
-                cursor: 'pointer',
-                letterSpacing: '0.01em',
-              }}
-            >
-              Zobrazit detail
-            </button>
           </div>
         </>
       )}

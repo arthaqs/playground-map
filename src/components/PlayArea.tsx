@@ -25,21 +25,51 @@ interface PlayAreaProps {
   forceHighlight?: boolean;
   colorYellow?: string;
   colorGreen?: string;
+  showOutlines?: boolean;
 }
 
 export const PlayArea: React.FC<PlayAreaProps> = ({
   zones, selectedZoneId, hoveredZoneId, onZoneClick, onZoneHover,
   mapHoverOpacity, mapSelectedOpacity, mapIdleOpacity, mapStrokeWidth, forceHighlight,
-  colorYellow, colorGreen,
+  colorYellow, colorGreen, showOutlines = true,
 }) => {
+  const activeZoneId = hoveredZoneId || selectedZoneId;
+  const activeZone = activeZoneId ? zones.find(z => z.id === activeZoneId) : null;
+  const maskZones = activeZone ? [activeZone] : showOutlines ? zones : [];
+  const showDarken = activeZone != null || showOutlines;
+
   return (
     <svg
       viewBox={`${CROP_X} ${CROP_Y} ${CROP_W} ${CROP_H}`}
       style={{ width: 'min(95vw, 1100px)', display: 'block' }}
     >
+      {showDarken && (
+        <defs>
+          <mask id="zone-holes">
+            <rect x={0} y={0} width={IMG_W} height={IMG_H} fill="white" />
+            {maskZones.flatMap(zone =>
+              (zone.polygons ?? []).map((poly, pi) => (
+                <polygon
+                  key={`mask-${zone.id}-${pi}`}
+                  points={poly.points.map(p => `${p[0]},${p[1]}`).join(' ')}
+                  fill="black"
+                />
+              ))
+            )}
+          </mask>
+        </defs>
+      )}
       <image href="/hriste1_web.png" x={0} y={0} width={IMG_W} height={IMG_H} />
+      {showDarken && (
+        <rect
+          x={0} y={0} width={IMG_W} height={IMG_H}
+          fill="black" fillOpacity={0.62}
+          mask="url(#zone-holes)"
+        />
+      )}
       <InteractiveSVG
         zones={zones}
+        idleVisible={showOutlines && !activeZone}
         selectedZoneId={selectedZoneId}
         hoveredZoneId={hoveredZoneId}
         onZoneClick={onZoneClick}
