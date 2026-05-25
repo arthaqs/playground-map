@@ -21,6 +21,11 @@ export const DEFAULT_MODAL_CFG: ModalCfg = {
   strokeSmoothing: 1,
 };
 
+function formatPlayers(players: number | string): string {
+  if (players === 0 || players === '0' || players === '') return 'Neomezeno';
+  return String(players);
+}
+
 const IMG_W = 2400;
 const IMG_H = 1525;
 const PAD = 90;
@@ -145,7 +150,9 @@ export const ZoneInfo: React.FC<{ zone: GameZone; cfg?: ModalCfg }> = ({ zone, c
           fontSize: '14px',
         }}>
           <span style={{ color: 'var(--text-muted)' }}>Počet hráčů</span>
-          <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{zone.players}</span>
+          <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>
+            {formatPlayers(zone.players) === 'Neomezeno' ? '∞ Neomezeno' : `${formatPlayers(zone.players)} hráčů`}
+          </span>
         </div>
         {zone.description && (
           <p style={{ fontSize: '14px', lineHeight: '1.65', color: 'var(--text-muted)', padding: '2px 0' }}>

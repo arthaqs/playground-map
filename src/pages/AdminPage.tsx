@@ -51,7 +51,7 @@ export const AdminPage: React.FC = () => {
 
   // Form
   const [zoneName, setZoneName] = useState('');
-  const [zonePlayers, setZonePlayers] = useState(2);
+  const [zonePlayers, setZonePlayers] = useState('2');
   const [zoneDescription, setZoneDescription] = useState('');
   const [zoneColor, setZoneColor] = useState<'yellow' | 'purple'>('yellow');
 
@@ -188,7 +188,7 @@ export const AdminPage: React.FC = () => {
     setNearFirst(false);
     setDraggingIdx(null);
     setZoneName('');
-    setZonePlayers(2);
+    setZonePlayers('2');
     setZoneDescription('');
     setZoneColor('yellow');
     setEditingZoneId(null);
@@ -199,7 +199,7 @@ export const AdminPage: React.FC = () => {
   const startEditing = useCallback((zone: GameZone) => {
     setEditingZoneId(zone.id);
     setZoneName(zone.name);
-    setZonePlayers(zone.players);
+    setZonePlayers(String(zone.players));
     setZoneDescription(zone.description);
     setZoneColor(zone.color);
     const polys = zone.polygons ?? [];
@@ -244,9 +244,9 @@ export const AdminPage: React.FC = () => {
     ];
     if (!zoneName || allPolygons.length === 0) return;
     if (isEditing) {
-      updateZone(editingZoneId!, { name: zoneName, players: zonePlayers, description: zoneDescription, color: zoneColor, polygons: allPolygons });
+      updateZone(editingZoneId!, { name: zoneName, players: zonePlayers === '0' ? 0 : zonePlayers, description: zoneDescription, color: zoneColor, polygons: allPolygons });
     } else {
-      addZone({ id: `zone-${Date.now()}`, name: zoneName, players: zonePlayers, description: zoneDescription, polygons: allPolygons, color: zoneColor });
+      addZone({ id: `zone-${Date.now()}`, name: zoneName, players: zonePlayers === '0' ? 0 : zonePlayers, description: zoneDescription, polygons: allPolygons, color: zoneColor });
     }
     resetEditor();
   }, [isEditing, editingZoneId, zoneName, zonePlayers, zoneDescription, zoneColor, points, isClosed, zonePolygons, addZone, updateZone, resetEditor]);
@@ -552,7 +552,7 @@ export const AdminPage: React.FC = () => {
                           <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: c, flexShrink: 0, display: 'inline-block' }} />
                           <div style={{ minWidth: 0 }}>
                             <p style={{ fontSize: '13px', color: 'var(--text-primary)', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{zone.name}</p>
-                            <p style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{zone.players} hráčů · {(zone.polygons ?? []).length} polygon{(zone.polygons ?? []).length !== 1 ? 'y' : ''}</p>
+                            <p style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{zone.players === 0 || zone.players === '0' ? '∞' : zone.players} hráčů · {(zone.polygons ?? []).length} polygon{(zone.polygons ?? []).length !== 1 ? 'y' : ''}</p>
                           </div>
                         </div>
                         <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
@@ -591,7 +591,28 @@ export const AdminPage: React.FC = () => {
                 </label>
                 <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
                   Počet hráčů
-                  <input type="number" min={1} value={zonePlayers} onChange={e => setZonePlayers(Number(e.target.value))} style={inputStyle(true)} />
+                  <div style={{ display: 'flex', gap: '6px', marginTop: '6px' }}>
+                    <input
+                      value={zonePlayers}
+                      onChange={e => setZonePlayers(e.target.value)}
+                      placeholder="4 nebo 2-6 nebo 0=∞"
+                      style={{ ...inputStyle(true), marginTop: 0, flex: 1 }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setZonePlayers('0')}
+                      title="Neomezeno"
+                      style={{
+                        padding: '8px 10px', backgroundColor: zonePlayers === '0' ? 'rgba(109,210,243,0.15)' : 'var(--bg-surface)',
+                        border: `1px solid ${zonePlayers === '0' ? '#6dd2f3' : 'var(--border)'}`,
+                        borderRadius: 'var(--radius)', color: zonePlayers === '0' ? '#6dd2f3' : 'var(--text-muted)',
+                        fontSize: '15px', cursor: 'pointer', lineHeight: 1, flexShrink: 0,
+                      }}
+                    >∞</button>
+                  </div>
+                  <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px', opacity: 0.7 }}>
+                    Celé číslo, rozsah (1-4), nebo ∞ = neomezeno
+                  </p>
                 </label>
                 <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
                   Popis

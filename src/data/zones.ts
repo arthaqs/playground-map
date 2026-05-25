@@ -5,7 +5,7 @@ export interface Polygon {
 export interface GameZone {
   id: string;
   name: string;
-  players: number;
+  players: number | string;
   description: string;
   polygons: Polygon[];
   color: 'yellow' | 'purple';

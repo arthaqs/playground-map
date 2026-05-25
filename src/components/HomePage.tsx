@@ -219,7 +219,7 @@ export const HomePage: React.FC = () => {
                       {zone.name}
                     </p>
                     <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                      {zone.players} hráčů
+                      {zone.players === 0 || zone.players === '0' ? '∞ Neomezeno' : `${zone.players} hráčů`}
                     </p>
                   </div>
                 </div>
@@ -312,7 +312,7 @@ export const HomePage: React.FC = () => {
                       {zone.name}
                     </p>
                     <p style={{ fontSize: '13px', color: isActive ? `rgba(${r},${g},${b},0.8)` : 'var(--text-muted)', fontWeight: 500 }}>
-                      {zone.players} hráčů
+                      {zone.players === 0 || zone.players === '0' ? '∞ Neomezeno' : `${zone.players} hráčů`}
                     </p>
                   </div>
                 );
@@ -366,7 +366,7 @@ export const HomePage: React.FC = () => {
             </div>
             <div style={{ display: 'flex', gap: '8px', marginBottom: peekZoneData.description ? '12px' : '20px' }}>
               <span style={{ fontSize: '13px', color: 'var(--text-muted)', backgroundColor: 'var(--bg-surface)', padding: '4px 10px', borderRadius: '20px', border: '1px solid var(--border)' }}>
-                {peekZoneData.players} hráčů
+                {peekZoneData.players === 0 || peekZoneData.players === '0' ? '∞ Neomezeno' : `${peekZoneData.players} hráčů`}
               </span>
             </div>
             {peekZoneData.description && (
