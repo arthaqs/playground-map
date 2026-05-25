@@ -19,6 +19,8 @@ const COLOR_MAP: Record<string, string> = {
   purple: '#4A7C59',
 };
 
+type WizardStep = 'idle' | 'details' | 'draw';
+
 export const AdminPage: React.FC = () => {
   const { zones, addZone, removeZone, updateZone, resetZones } = useZones();
   const [zoneCfgs, setZoneCfgs] = useSyncedStorage<Record<string, ModalCfg>>('zone-modal-cfgs', {});
@@ -27,19 +29,20 @@ export const AdminPage: React.FC = () => {
 
   useEffect(() => {
     setEditingCfg({ ...DEFAULT_MODAL_CFG, ...(previewZoneId ? (zoneCfgs[previewZoneId] ?? {}) : {}) });
-  }, [previewZoneId]); // intentionally excludes zoneCfgs — only re-init when switching zones
+  }, [previewZoneId]);
 
   const saveActiveCfg = () => {
     if (!previewZoneId) return;
     setZoneCfgs({ ...zoneCfgs, [previewZoneId]: editingCfg });
   };
+
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const didDragRef = useRef(false);
   const panStartRef = useRef<{ cx: number; cy: number; tx: number; ty: number } | null>(null);
 
   // Polygon editor
-  const [zonePolygons, setZonePolygons] = useState<Polygon[]>([]); // finalized polygons for current zone
+  const [zonePolygons, setZonePolygons] = useState<Polygon[]>([]);
   const [points, setPoints] = useState<[number, number][]>([]);
   const [isClosed, setIsClosed] = useState(false);
   const [mousePos, setMousePos] = useState<[number, number] | null>(null);
@@ -80,19 +83,18 @@ export const AdminPage: React.FC = () => {
     return () => el.removeEventListener('wheel', onWheel);
   }, []);
 
-  // Edit mode
+  // Wizard + edit mode
+  const [wizardStep, setWizardStep] = useState<WizardStep>('idle');
   const [editingZoneId, setEditingZoneId] = useState<string | null>(null);
-
   const isEditing = editingZoneId !== null;
-  const formEnabled = isEditing || isClosed || zonePolygons.length > 0;
+  const drawingActive = wizardStep === 'draw' || isEditing;
   const fillColor = COLOR_MAP[zoneColor];
 
   const toSVGCoords = useCallback((clientX: number, clientY: number): [number, number] => {
     const svg = svgRef.current;
     if (!svg) return [0, 0];
     const pt = svg.createSVGPoint();
-    pt.x = clientX;
-    pt.y = clientY;
+    pt.x = clientX; pt.y = clientY;
     const svgPt = pt.matrixTransform(svg.getScreenCTM()!.inverse());
     return [Math.round(svgPt.x), Math.round(svgPt.y)];
   }, []);
@@ -102,8 +104,6 @@ export const AdminPage: React.FC = () => {
     const [fx, fy] = points[0];
     return Math.sqrt((x - fx) ** 2 + (y - fy) ** 2);
   }, [points]);
-
-  // --- SVG handlers ---
 
   const handleSVGMouseDown = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
     didDragRef.current = false;
@@ -132,7 +132,7 @@ export const AdminPage: React.FC = () => {
     }
     setMousePos([x, y]);
     setNearFirst(!isClosed && points.length >= 3 && distToFirst(x, y) < CLOSE_THRESHOLD);
-  }, [draggingIdx, toSVGCoords, isEditing, points.length, isClosed, distToFirst, scale]);
+  }, [draggingIdx, toSVGCoords, points.length, isClosed, distToFirst, scale]);
 
   const handleSVGMouseUp = useCallback(() => {
     setDraggingIdx(null);
@@ -141,14 +141,15 @@ export const AdminPage: React.FC = () => {
 
   const handleSVGClick = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
     if (didDragRef.current) return;
-    if (isClosed) return; // closed polygon: edge/point elements handle clicks
+    if (!drawingActive) return;
+    if (isClosed) return;
     const [x, y] = toSVGCoords(e.clientX, e.clientY);
     if (points.length >= 3 && distToFirst(x, y) < CLOSE_THRESHOLD) {
       setIsClosed(true);
       return;
     }
     setPoints(prev => [...prev, [x, y]]);
-  }, [isEditing, isClosed, points.length, toSVGCoords, distToFirst]);
+  }, [drawingActive, isClosed, points.length, toSVGCoords, distToFirst]);
 
   const insertPointOnEdge = useCallback((edgeIdx: number, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -169,8 +170,6 @@ export const AdminPage: React.FC = () => {
     });
   }, []);
 
-  // --- Form / editor actions ---
-
   const resetEditor = useCallback(() => {
     setZonePolygons([]);
     setPoints([]);
@@ -183,6 +182,7 @@ export const AdminPage: React.FC = () => {
     setZoneDescription('');
     setZoneColor('yellow');
     setEditingZoneId(null);
+    setWizardStep('idle');
     setViewTransform({ scale: 1, tx: 0, ty: 0 });
   }, []);
 
@@ -199,6 +199,7 @@ export const AdminPage: React.FC = () => {
     setMousePos(null);
     setNearFirst(false);
     setDraggingIdx(null);
+    setWizardStep('draw');
   }, []);
 
   const addCurrentPolygon = useCallback(() => {
@@ -225,7 +226,6 @@ export const AdminPage: React.FC = () => {
     setDraggingIdx(null);
   }, [zonePolygons, points, isClosed]);
 
-
   const handleSave = useCallback(() => {
     const currentValid = points.length >= 3 && (isEditing || isClosed);
     const allPolygons: Polygon[] = [
@@ -234,22 +234,9 @@ export const AdminPage: React.FC = () => {
     ];
     if (!zoneName || allPolygons.length === 0) return;
     if (isEditing) {
-      updateZone(editingZoneId!, {
-        name: zoneName,
-        players: zonePlayers,
-        description: zoneDescription,
-        color: zoneColor,
-        polygons: allPolygons,
-      });
+      updateZone(editingZoneId!, { name: zoneName, players: zonePlayers, description: zoneDescription, color: zoneColor, polygons: allPolygons });
     } else {
-      addZone({
-        id: `zone-${Date.now()}`,
-        name: zoneName,
-        players: zonePlayers,
-        description: zoneDescription,
-        polygons: allPolygons,
-        color: zoneColor,
-      });
+      addZone({ id: `zone-${Date.now()}`, name: zoneName, players: zonePlayers, description: zoneDescription, polygons: allPolygons, color: zoneColor });
     }
     resetEditor();
   }, [isEditing, editingZoneId, zoneName, zonePlayers, zoneDescription, zoneColor, points, isClosed, zonePolygons, addZone, updateZone, resetEditor]);
@@ -257,6 +244,7 @@ export const AdminPage: React.FC = () => {
   const currentValid = points.length >= 3 && (isEditing || isClosed);
   const totalPolygons = zonePolygons.length + (currentValid ? 1 : 0);
   const canSave = !!zoneName && totalPolygons >= 1;
+  const detailsValid = zoneName.trim().length > 0;
 
   const pointsStr = points.map(p => `${p[0]},${p[1]}`).join(' ');
 
@@ -274,16 +262,14 @@ export const AdminPage: React.FC = () => {
 
   const zoomHint = scale > 1 ? ` · Zoom ${scale.toFixed(1)}× (táhni = posun)` : ' · kolečko = zoom';
   const instruction = isEditing
-    ? `Táhni body · klik na hranu = přidej bod · pravý klik na bod = smaž bod${zoomHint}`
+    ? `Táhni body · klik na hranu = přidej bod · pravý klik = smaž bod${zoomHint}`
     : isClosed
       ? zonePolygons.length > 0
         ? `Polygon ${zonePolygons.length + 1} uzavřen. Přidej další nebo ulož.`
-        : 'Polygon uzavřen. Vyplň detaily a ulož nebo přidej další polygon.'
-      : points.length === 0 && zonePolygons.length > 0
-        ? `Kresli polygon ${zonePolygons.length + 1} nebo ulož zónu (${zonePolygons.length} polygon${zonePolygons.length > 1 ? 'y' : ''}).`
-        : points.length < 3
-          ? `Klikej body polygonu na mapě. Min. 3 body.${zoomHint}`
-          : 'Klikni na první bod ✓ pro uzavření.';
+        : 'Oblast uzavřena. Ulož nebo přidej další polygon.'
+      : points.length < 3
+        ? `Klikej body oblasti na mapě. Min. 3 body.${zoomHint}`
+        : 'Klikni na první bod ✓ pro uzavření.';
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg-deep)', display: 'flex', flexDirection: 'column' }}>
@@ -292,19 +278,29 @@ export const AdminPage: React.FC = () => {
         padding: '0 32px', height: '64px', backgroundColor: 'rgba(20,26,22,0.95)',
         borderBottom: '1px solid var(--border)', backdropFilter: 'blur(8px)', flexShrink: 0,
       }}>
-        <a href="#" style={{ color: 'var(--text-muted)', textDecoration: 'none', fontSize: '13px' }}>← Zpět</a>
+        <a href="#" onClick={resetEditor} style={{ color: 'var(--text-muted)', textDecoration: 'none', fontSize: '13px' }}>← Zpět</a>
         <span style={{ color: 'var(--border)', userSelect: 'none' }}>|</span>
         <span style={{ fontWeight: 700, letterSpacing: '0.12em', fontSize: '13px', color: 'var(--accent)', textTransform: 'uppercase' }}>
           Editor zón
         </span>
+        {wizardStep !== 'idle' && (
+          <>
+            <span style={{ color: 'var(--border)', userSelect: 'none' }}>|</span>
+            <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
+              {isEditing ? `Editace: ${zones.find(z => z.id === editingZoneId)?.name}` : wizardStep === 'details' ? 'Nová hra — detaily' : `Nová hra — oblast · ${zoneName}`}
+            </span>
+          </>
+        )}
       </nav>
 
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         {/* MAP */}
         <div style={{ flex: 1, padding: '28px 28px 28px 32px', overflow: 'auto', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <p style={{ fontSize: '13px', color: isEditing ? 'var(--accent)' : nearFirst ? fillColor : 'var(--text-muted)', transition: 'color 0.2s' }}>
-            {instruction}
-          </p>
+          {drawingActive && (
+            <p style={{ fontSize: '13px', color: isEditing ? 'var(--accent)' : nearFirst ? fillColor : 'var(--text-muted)', transition: 'color 0.2s' }}>
+              {instruction}
+            </p>
+          )}
 
           <div style={{ border: '1px solid var(--border)', borderRadius: '8px', overflow: 'hidden', width: 'fit-content', boxShadow: '0 16px 40px rgba(0,0,0,0.4)' }}>
             <div ref={containerRef} style={{ overflow: 'hidden' }}>
@@ -315,7 +311,7 @@ export const AdminPage: React.FC = () => {
                   width: 'min(62vw, 1100px)', display: 'block',
                   transform: `translate(${tx}px, ${ty}px) scale(${scale})`,
                   transformOrigin: '0 0',
-                  cursor: draggingIdx !== null ? 'grabbing' : scale > 1 ? 'grab' : (isEditing || isClosed) ? 'default' : 'crosshair',
+                  cursor: draggingIdx !== null ? 'grabbing' : scale > 1 ? 'grab' : drawingActive && !isClosed ? 'crosshair' : 'default',
                   userSelect: 'none',
                 }}
                 onMouseDown={handleSVGMouseDown}
@@ -325,6 +321,7 @@ export const AdminPage: React.FC = () => {
                 onClick={handleSVGClick}
               >
                 <image href="/hriste1_web.png" x={0} y={0} width={IMG_W} height={IMG_H} />
+
                 {/* Other zones (faded) */}
                 {zones.filter(z => z.id !== editingZoneId).map(zone =>
                   (zone.polygons ?? []).map((poly, pi) => (
@@ -336,12 +333,13 @@ export const AdminPage: React.FC = () => {
                       stroke={COLOR_MAP[zone.color] ?? zone.color}
                       strokeWidth={3}
                       strokeLinejoin="round"
+                      vectorEffect="non-scaling-stroke"
                       style={{ pointerEvents: 'none' }}
                     />
                   ))
                 )}
 
-                {/* Current zone's finalized polygons (clickable to swap active) */}
+                {/* Current zone's finalized polygons */}
                 {zonePolygons.map((poly, pi) => (
                   <g key={`zone-poly-${pi}`}>
                     <polygon
@@ -352,6 +350,7 @@ export const AdminPage: React.FC = () => {
                       strokeWidth={3}
                       strokeDasharray="12 6"
                       strokeLinejoin="round"
+                      vectorEffect="non-scaling-stroke"
                       style={{ cursor: 'pointer' }}
                       onClick={(e) => { e.stopPropagation(); swapActivePolygon(pi); }}
                     />
@@ -367,28 +366,28 @@ export const AdminPage: React.FC = () => {
 
                 {/* Polyline — placed points in order */}
                 {!isClosed && points.length >= 2 && (
-                  <polyline points={pointsStr} fill="none" stroke={fillColor} strokeWidth={6} strokeOpacity={0.8} strokeLinejoin="round" style={{ pointerEvents: 'none' }} />
+                  <polyline points={pointsStr} fill="none" stroke={fillColor} strokeWidth={6} strokeOpacity={0.8} strokeLinejoin="round" vectorEffect="non-scaling-stroke" style={{ pointerEvents: 'none' }} />
                 )}
-                {/* Next edge preview — last point → cursor */}
+                {/* Next edge preview */}
                 {!isClosed && mousePos && points.length >= 1 && (
                   <line
                     x1={points[points.length - 1][0]} y1={points[points.length - 1][1]}
                     x2={mousePos[0]} y2={mousePos[1]}
                     stroke={fillColor} strokeWidth={4} strokeDasharray="16 8" strokeOpacity={0.6}
-                    style={{ pointerEvents: 'none' }}
+                    vectorEffect="non-scaling-stroke" style={{ pointerEvents: 'none' }}
                   />
                 )}
-                {/* Close-preview — last point → first point when near */}
+                {/* Close-preview */}
                 {!isClosed && nearFirst && points.length >= 3 && (
                   <line
                     x1={points[points.length - 1][0]} y1={points[points.length - 1][1]}
                     x2={points[0][0]} y2={points[0][1]}
                     stroke={fillColor} strokeWidth={5} strokeDasharray="12 6" strokeOpacity={0.9}
-                    style={{ pointerEvents: 'none' }}
+                    vectorEffect="non-scaling-stroke" style={{ pointerEvents: 'none' }}
                   />
                 )}
 
-                {/* Current polygon (new or editing) */}
+                {/* Current polygon fill */}
                 {points.length >= 3 && (
                   <polygon
                     points={pointsStr}
@@ -399,23 +398,19 @@ export const AdminPage: React.FC = () => {
                   />
                 )}
 
-                {/* Edit mode: edge hit areas (insert point on click) */}
+                {/* Edit mode: edge hit areas */}
                 {isEditing && isClosed && points.length >= 2 && points.map((p, i) => {
                   const next = points[(i + 1) % points.length];
                   return (
-                    <line
-                      key={`edge-${i}`}
-                      x1={p[0]} y1={p[1]} x2={next[0]} y2={next[1]}
-                      stroke={fillColor}
-                      strokeWidth={14 / scale}
-                      strokeOpacity={0.25}
+                    <line key={`edge-${i}`} x1={p[0]} y1={p[1]} x2={next[0]} y2={next[1]}
+                      stroke={fillColor} strokeWidth={14 / scale} strokeOpacity={0.25}
                       style={{ cursor: 'crosshair' }}
                       onClick={(e) => insertPointOnEdge(i, e)}
                     />
                   );
                 })}
 
-                {/* New polygon mode: numbered points */}
+                {/* Numbered points (new polygon mode) */}
                 {!isClosed && points.map((p, i) => {
                   const isFirst = i === 0;
                   const isLast = i === points.length - 1;
@@ -423,7 +418,10 @@ export const AdminPage: React.FC = () => {
                   return (
                     <g key={i} style={{ pointerEvents: 'none' }}>
                       {glow && <circle cx={p[0]} cy={p[1]} r={55 / scale} fill={fillColor} opacity={0.22} />}
-                      <circle cx={p[0]} cy={p[1]} r={(isFirst ? 18 : 14) / scale} fill={isFirst ? fillColor : isLast ? fillColor : '#141a16'} fillOpacity={isFirst ? 1 : isLast ? 0.3 : 1} stroke={fillColor} strokeWidth={5 / scale} />
+                      <circle cx={p[0]} cy={p[1]} r={(isFirst ? 18 : 14) / scale}
+                        fill={isFirst ? fillColor : isLast ? fillColor : '#141a16'}
+                        fillOpacity={isFirst ? 1 : isLast ? 0.3 : 1}
+                        stroke={fillColor} strokeWidth={5 / scale} />
                       {isFirst
                         ? <text x={p[0]} y={p[1] + 6 / scale} textAnchor="middle" fontSize={16 / scale} fill="#141a16" fontWeight="bold" style={{ userSelect: 'none' }}>✓</text>
                         : <text x={p[0]} y={p[1] + 5 / scale} textAnchor="middle" fontSize={13 / scale} fill={fillColor} fontWeight="bold" style={{ userSelect: 'none' }}>{i + 1}</text>
@@ -434,166 +432,239 @@ export const AdminPage: React.FC = () => {
 
                 {/* Edit mode: draggable points */}
                 {isEditing && isClosed && points.map((p, i) => (
-                  <circle
-                    key={`pt-${i}`}
-                    cx={p[0]} cy={p[1]}
-                    r={12 / scale}
+                  <circle key={`pt-${i}`} cx={p[0]} cy={p[1]} r={12 / scale}
                     fill={draggingIdx === i ? fillColor : '#141a16'}
-                    stroke={fillColor}
-                    strokeWidth={5 / scale}
+                    stroke={fillColor} strokeWidth={5 / scale}
                     style={{ cursor: draggingIdx === i ? 'grabbing' : 'grab' }}
                     onMouseDown={(e) => { e.stopPropagation(); didDragRef.current = false; setDraggingIdx(i); }}
                     onContextMenu={(e) => deletePoint(i, e)}
                   />
                 ))}
 
-                {/* Cursor dot (new polygon mode) */}
-                {!isClosed && mousePos && !nearFirst && (
+                {/* Cursor dot */}
+                {drawingActive && !isClosed && mousePos && !nearFirst && (
                   <circle cx={mousePos[0]} cy={mousePos[1]} r={8 / scale} fill={fillColor} opacity={0.5} style={{ pointerEvents: 'none' }} />
                 )}
               </svg>
             </div>
 
-            {/* Controls bar */}
-            <div style={{ backgroundColor: 'var(--bg-surface)', borderTop: '1px solid var(--border)', padding: '10px 16px', display: 'flex', gap: '10px', alignItems: 'center' }}>
-              <span style={{ fontSize: '12px', color: isEditing ? 'var(--accent)' : 'var(--text-muted)', minWidth: '80px' }}>
-                {isEditing ? 'Editace' : ''}{points.length > 0 ? ` · ${points.length} bodů` : ''}{isClosed ? ' · uzavřeno' : ''}{zonePolygons.length > 0 ? ` · ${zonePolygons.length} hotov${zonePolygons.length > 1 ? 'é' : 'ý'}` : ''}
-              </span>
-              {isClosed && (
-                <button onClick={addCurrentPolygon} style={{ ...btnBase, borderColor: fillColor, color: fillColor }}>
-                  + Přidat polygon
-                </button>
-              )}
-              {!isClosed && points.length >= 3 && (
-                <button onClick={() => setIsClosed(true)} style={{ ...btnBase, backgroundColor: fillColor, color: 'var(--bg-deep)', border: 'none', fontWeight: 600 }}>
-                  Uzavřít polygon
-                </button>
-              )}
-              {!isClosed && points.length > 0 && (
-                <button onClick={() => setPoints(p => p.slice(0, -1))} style={btnBase}>Zpět</button>
-              )}
-              <button onClick={resetEditor} style={btnBase}>
-                {isEditing ? 'Zrušit editaci' : 'Smazat'}
-              </button>
-              {scale !== 1 && (
-                <button onClick={() => setViewTransform({ scale: 1, tx: 0, ty: 0 })} style={btnBase}>
-                  Zoom: {scale.toFixed(1)}× ✕
-                </button>
-              )}
-              {mousePos && !isClosed && !isEditing && (
-                <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginLeft: 'auto', fontFamily: 'monospace' }}>
-                  {mousePos[0]}, {mousePos[1]}
+            {/* Controls bar — only when drawing */}
+            {drawingActive && (
+              <div style={{ backgroundColor: 'var(--bg-surface)', borderTop: '1px solid var(--border)', padding: '10px 16px', display: 'flex', gap: '10px', alignItems: 'center' }}>
+                <span style={{ fontSize: '12px', color: isEditing ? 'var(--accent)' : 'var(--text-muted)', minWidth: '80px' }}>
+                  {isEditing ? 'Editace' : ''}{points.length > 0 ? ` · ${points.length} bodů` : ''}{isClosed ? ' · uzavřeno' : ''}{zonePolygons.length > 0 ? ` · ${zonePolygons.length} hotov${zonePolygons.length > 1 ? 'é' : 'ý'}` : ''}
                 </span>
-              )}
-            </div>
+                {isClosed && (
+                  <button onClick={addCurrentPolygon} style={{ ...btnBase, borderColor: fillColor, color: fillColor }}>
+                    + Přidat polygon
+                  </button>
+                )}
+                {!isClosed && points.length >= 3 && (
+                  <button onClick={() => setIsClosed(true)} style={{ ...btnBase, backgroundColor: fillColor, color: 'var(--bg-deep)', border: 'none', fontWeight: 600 }}>
+                    Uzavřít oblast
+                  </button>
+                )}
+                {!isClosed && points.length > 0 && (
+                  <button onClick={() => setPoints(p => p.slice(0, -1))} style={btnBase}>Zpět</button>
+                )}
+                {scale !== 1 && (
+                  <button onClick={() => setViewTransform({ scale: 1, tx: 0, ty: 0 })} style={btnBase}>
+                    Zoom: {scale.toFixed(1)}× ✕
+                  </button>
+                )}
+                {mousePos && !isClosed && (
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginLeft: 'auto', fontFamily: 'monospace' }}>
+                    {mousePos[0]}, {mousePos[1]}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
         {/* SIDEBAR */}
-        <div style={{ width: '300px', flexShrink: 0, borderLeft: '1px solid var(--border)', padding: '28px 24px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '28px' }}>
-          <div>
-            <h2 style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.16em', textTransform: 'uppercase', color: isEditing ? 'var(--accent)' : 'var(--text-muted)', marginBottom: '16px' }}>
-              {isEditing ? `Editace — ${zones.find(z => z.id === editingZoneId)?.name}` : 'Nová zóna'}
-            </h2>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                Název
-                <input value={zoneName} onChange={e => setZoneName(e.target.value)} disabled={!formEnabled} placeholder="Twister, Nohejbal…" style={inputStyle(formEnabled)} />
-              </label>
-              <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                Počet hráčů
-                <input type="number" min={1} value={zonePlayers} onChange={e => setZonePlayers(Number(e.target.value))} disabled={!formEnabled} style={inputStyle(formEnabled)} />
-              </label>
-              <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                Popis
-                <textarea value={zoneDescription} onChange={e => setZoneDescription(e.target.value)} disabled={!formEnabled} rows={3} placeholder="Krátký popis hry…" style={{ ...inputStyle(formEnabled), resize: 'vertical' }} />
-              </label>
+        <div style={{ width: '300px', flexShrink: 0, borderLeft: '1px solid var(--border)', padding: '28px 24px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+
+          {/* === IDLE === */}
+          {wizardStep === 'idle' && !isEditing && (
+            <>
+              <button
+                onClick={() => setWizardStep('details')}
+                style={{
+                  width: '100%', padding: '14px 16px',
+                  backgroundColor: 'var(--accent)', color: 'var(--bg-deep)',
+                  border: 'none', borderRadius: '8px', fontSize: '15px',
+                  fontWeight: 700, cursor: 'pointer', letterSpacing: '0.01em',
+                }}
+              >
+                + Přidat novou hru
+              </button>
+
               <div>
-                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Barva</span>
-                <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
-                  {(['yellow', 'purple'] as const).map(c => (
-                    <button key={c} onClick={() => formEnabled && setZoneColor(c)} style={{
-                      flex: 1, padding: '8px',
-                      backgroundColor: zoneColor === c ? `${COLOR_MAP[c]}20` : 'transparent',
-                      border: `2px solid ${zoneColor === c ? COLOR_MAP[c] : 'var(--border)'}`,
-                      borderRadius: 'var(--radius)', cursor: formEnabled ? 'pointer' : 'not-allowed',
-                      opacity: formEnabled ? 1 : 0.45, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                      fontSize: '12px', color: zoneColor === c ? COLOR_MAP[c] : 'var(--text-muted)', transition: 'all 0.15s',
-                    }}>
-                      <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: COLOR_MAP[c], display: 'inline-block', flexShrink: 0 }} />
-                      {c === 'yellow' ? 'Amber' : 'Zelená'}
-                    </button>
-                  ))}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                  <h2 style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
+                    Hry ({zones.length})
+                  </h2>
+                  <button onClick={() => { if (window.confirm('Resetovat na výchozí?')) resetZones(); }} style={{ fontSize: '11px', color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer' }}>
+                    Reset
+                  </button>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {zones.map(zone => {
+                    const c = COLOR_MAP[zone.color] ?? zone.color;
+                    return (
+                      <div key={zone.id} style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        padding: '10px 12px', backgroundColor: 'var(--bg-surface)',
+                        borderRadius: 'var(--radius)', border: '1px solid var(--border)',
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+                          <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: c, flexShrink: 0, display: 'inline-block' }} />
+                          <div style={{ minWidth: 0 }}>
+                            <p style={{ fontSize: '13px', color: 'var(--text-primary)', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{zone.name}</p>
+                            <p style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{zone.players} hráčů · {(zone.polygons ?? []).length} polygon{(zone.polygons ?? []).length !== 1 ? 'y' : ''}</p>
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
+                          <button onClick={() => setPreviewZoneId(zone.id)} title="Náhled"
+                            style={{ background: 'none', border: 'none', color: previewZoneId === zone.id ? c : 'var(--text-muted)', cursor: 'pointer', fontSize: '14px', padding: '2px 6px' }}
+                          >👁</button>
+                          <button onClick={() => startEditing(zone)} title="Upravit"
+                            style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '14px', padding: '2px 6px' }}
+                          >✎</button>
+                          <button onClick={() => removeZone(zone.id)} title="Smazat"
+                            style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '18px', padding: '2px 6px' }}
+                          >×</button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {zones.length === 0 && <p style={{ fontSize: '13px', color: 'var(--text-muted)', fontStyle: 'italic' }}>Žádné hry</p>}
                 </div>
               </div>
-              <button onClick={handleSave} disabled={!canSave} style={{
-                padding: '10px 16px',
-                backgroundColor: canSave ? fillColor : 'transparent',
-                color: canSave ? 'var(--bg-deep)' : 'var(--text-muted)',
-                border: `1px solid ${canSave ? fillColor : 'var(--border)'}`,
-                borderRadius: 'var(--radius)', fontSize: '14px', fontWeight: 600,
-                cursor: !canSave ? 'not-allowed' : 'pointer', opacity: !canSave ? 0.45 : 1,
-                transition: 'all 0.2s', marginTop: '4px',
-              }}>
-                {isEditing ? 'Uložit změny' : 'Uložit zónu'}
-              </button>
-            </div>
-          </div>
+            </>
+          )}
 
-          {/* Zone list */}
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-              <h2 style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
-                Zóny ({zones.length})
-              </h2>
-              <button onClick={() => { if (window.confirm('Resetovat na výchozí zóny?')) resetZones(); }} style={{ fontSize: '11px', color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px' }}>
-                Reset
-              </button>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {zones.map(zone => {
-                const active = zone.id === editingZoneId;
-                const c = COLOR_MAP[zone.color] ?? zone.color;
-                return (
-                  <div key={zone.id} style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    padding: '10px 12px', backgroundColor: active ? `${c}12` : 'var(--bg-surface)',
-                    borderRadius: 'var(--radius)', border: `1px solid ${active ? c : 'var(--border)'}`, transition: 'all 0.15s',
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
-                      <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: c, flexShrink: 0, display: 'inline-block' }} />
-                      <div style={{ minWidth: 0 }}>
-                        <p style={{ fontSize: '13px', color: 'var(--text-primary)', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{zone.name}</p>
-                        <p style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{zone.players} hráčů · {(zone.polygons ?? []).length} polygon{(zone.polygons ?? []).length !== 1 ? 'y' : ''}</p>
-                      </div>
-                    </div>
-                    <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
-                      <button onClick={() => setPreviewZoneId(zone.id)} title="Náhled modalu"
-                        style={{ background: 'none', border: 'none', color: previewZoneId === zone.id ? c : 'var(--text-muted)', cursor: 'pointer', fontSize: '14px', padding: '2px 6px', lineHeight: 1, transition: 'color 0.15s' }}
-                        onMouseEnter={e => (e.currentTarget.style.color = c)}
-                        onMouseLeave={e => (e.currentTarget.style.color = previewZoneId === zone.id ? c : 'var(--text-muted)')}
-                      >👁</button>
-                      <button onClick={() => startEditing(zone)} title="Upravit"
-                        style={{ background: 'none', border: 'none', color: active ? c : 'var(--text-muted)', cursor: 'pointer', fontSize: '14px', padding: '2px 6px', lineHeight: 1, transition: 'color 0.15s' }}
-                        onMouseEnter={e => (e.currentTarget.style.color = c)}
-                        onMouseLeave={e => (e.currentTarget.style.color = active ? c : 'var(--text-muted)')}
-                      >✎</button>
-                      <button onClick={() => { if (active) resetEditor(); removeZone(zone.id); }} title="Smazat"
-                        style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '18px', padding: '2px 6px', lineHeight: 1, transition: 'color 0.15s' }}
-                        onMouseEnter={e => (e.currentTarget.style.color = '#e55')}
-                        onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-muted)')}
-                      >×</button>
-                    </div>
+          {/* === STEP 1: DETAILS === */}
+          {wizardStep === 'details' && !isEditing && (
+            <>
+              <div>
+                <p style={{ fontSize: '11px', color: 'var(--text-muted)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '4px' }}>Krok 1 / 2</p>
+                <h2 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>Detaily hry</h2>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                  Název *
+                  <input value={zoneName} onChange={e => setZoneName(e.target.value)} placeholder="Twister, Skákačka…" style={inputStyle(true)} autoFocus />
+                </label>
+                <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                  Počet hráčů
+                  <input type="number" min={1} value={zonePlayers} onChange={e => setZonePlayers(Number(e.target.value))} style={inputStyle(true)} />
+                </label>
+                <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                  Popis
+                  <textarea value={zoneDescription} onChange={e => setZoneDescription(e.target.value)} rows={3} placeholder="Krátký popis hry…" style={{ ...inputStyle(true), resize: 'vertical' }} />
+                </label>
+                <div>
+                  <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Barva</span>
+                  <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                    {(['yellow', 'purple'] as const).map(c => (
+                      <button key={c} onClick={() => setZoneColor(c)} style={{
+                        flex: 1, padding: '8px',
+                        backgroundColor: zoneColor === c ? `${COLOR_MAP[c]}20` : 'transparent',
+                        border: `2px solid ${zoneColor === c ? COLOR_MAP[c] : 'var(--border)'}`,
+                        borderRadius: 'var(--radius)', cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                        fontSize: '12px', color: zoneColor === c ? COLOR_MAP[c] : 'var(--text-muted)', transition: 'all 0.15s',
+                      }}>
+                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: COLOR_MAP[c], display: 'inline-block', flexShrink: 0 }} />
+                        {c === 'yellow' ? 'Amber' : 'Zelená'}
+                      </button>
+                    ))}
                   </div>
-                );
-              })}
-              {zones.length === 0 && <p style={{ fontSize: '13px', color: 'var(--text-muted)', fontStyle: 'italic' }}>Žádné zóny</p>}
-            </div>
-          </div>
+                </div>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: 'auto' }}>
+                <button
+                  onClick={() => detailsValid && setWizardStep('draw')}
+                  disabled={!detailsValid}
+                  style={{
+                    padding: '12px 16px', backgroundColor: detailsValid ? fillColor : 'transparent',
+                    color: detailsValid ? 'var(--bg-deep)' : 'var(--text-muted)',
+                    border: `1px solid ${detailsValid ? fillColor : 'var(--border)'}`,
+                    borderRadius: 'var(--radius)', fontSize: '14px', fontWeight: 700,
+                    cursor: detailsValid ? 'pointer' : 'not-allowed', opacity: detailsValid ? 1 : 0.5,
+                  }}
+                >
+                  Nakreslit na mapě →
+                </button>
+                <button onClick={resetEditor} style={btnBase}>Zrušit</button>
+              </div>
+            </>
+          )}
+
+          {/* === STEP 2: DRAW (new) OR EDIT === */}
+          {(wizardStep === 'draw') && (
+            <>
+              <div>
+                {!isEditing && <p style={{ fontSize: '11px', color: 'var(--text-muted)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '4px' }}>Krok 2 / 2</p>}
+                <h2 style={{ fontSize: '16px', fontWeight: 700, color: isEditing ? 'var(--accent)' : 'var(--text-primary)' }}>
+                  {isEditing ? `Editace: ${zones.find(z => z.id === editingZoneId)?.name}` : 'Nakresli oblast'}
+                </h2>
+                {!isEditing && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px' }}>
+                    <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: fillColor, display: 'inline-block' }} />
+                    <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>{zoneName}</span>
+                    <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>· {zonePlayers} hráčů</span>
+                  </div>
+                )}
+              </div>
+
+              {isEditing && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                    Název
+                    <input value={zoneName} onChange={e => setZoneName(e.target.value)} style={inputStyle(true)} />
+                  </label>
+                  <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                    Počet hráčů
+                    <input type="number" min={1} value={zonePlayers} onChange={e => setZonePlayers(Number(e.target.value))} style={inputStyle(true)} />
+                  </label>
+                  <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                    Popis
+                    <textarea value={zoneDescription} onChange={e => setZoneDescription(e.target.value)} rows={3} style={{ ...inputStyle(true), resize: 'vertical' }} />
+                  </label>
+                </div>
+              )}
+
+              <div style={{ fontSize: '13px', color: 'var(--text-muted)', backgroundColor: 'var(--bg-surface)', borderRadius: '6px', padding: '10px 14px', lineHeight: 1.6 }}>
+                Klikej body na mapě v pořadí → uzavři oblast → ulož.
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: 'auto' }}>
+                <button
+                  onClick={handleSave}
+                  disabled={!canSave}
+                  style={{
+                    padding: '12px 16px', backgroundColor: canSave ? fillColor : 'transparent',
+                    color: canSave ? 'var(--bg-deep)' : 'var(--text-muted)',
+                    border: `1px solid ${canSave ? fillColor : 'var(--border)'}`,
+                    borderRadius: 'var(--radius)', fontSize: '14px', fontWeight: 700,
+                    cursor: canSave ? 'pointer' : 'not-allowed', opacity: canSave ? 1 : 0.5,
+                  }}
+                >
+                  {isEditing ? 'Uložit změny' : 'Uložit hru'}
+                </button>
+                {!isEditing && (
+                  <button onClick={() => setWizardStep('details')} style={btnBase}>← Zpět k detailům</button>
+                )}
+                <button onClick={resetEditor} style={btnBase}>{isEditing ? 'Zrušit editaci' : 'Zrušit'}</button>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
-      {/* Modal preview */}
       <Modal
         zone={zones.find(z => z.id === previewZoneId) ?? null}
         isOpen={previewZoneId !== null}
@@ -601,7 +672,6 @@ export const AdminPage: React.FC = () => {
         modalCfg={editingCfg}
       />
 
-      {/* Modal config panel */}
       <div style={{ position: 'fixed', bottom: '16px', right: '16px', backgroundColor: '#1e2b22', border: '1px solid #4A7C59', borderRadius: '8px', padding: '16px', width: '250px', zIndex: 1001, fontSize: '12px', color: '#F0EDE8', boxShadow: '0 8px 32px rgba(0,0,0,0.6)' }}>
         <p style={{ fontWeight: 700, fontSize: '11px', letterSpacing: '0.12em', textTransform: 'uppercase', color: previewZoneId ? '#E8A540' : '#8A9E91', margin: '0 0 12px' }}>
           {previewZoneId ? (zones.find(z => z.id === previewZoneId)?.name ?? 'Modal cfg') : 'Modal cfg — vyber zónu 👁'}
