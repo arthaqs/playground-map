@@ -54,9 +54,6 @@ export const HomePage: React.FC = () => {
 
   const peekZone = useCallback((zoneId: string) => setPeekZoneId(zoneId), []);
   const closePeek = useCallback(() => setPeekZoneId(null), []);
-  const openModalFromPeek = useCallback(() => {
-    if (peekZoneId) { selectZone(peekZoneId); setPeekZoneId(null); }
-  }, [peekZoneId, selectZone]);
 
   const peekZoneData = useMemo(
     () => peekZoneId ? zones.find(z => z.id === peekZoneId) ?? null : null,
@@ -257,7 +254,7 @@ export const HomePage: React.FC = () => {
               }}
             >
               <span style={{ fontSize: '22px' }}>{showOutlines ? '👁' : '🙈'}</span>
-              {showOutlines ? 'Zóny na mapě: ZAP' : 'Zóny na mapě: VYP'}
+              {showOutlines ? 'Zvýraznit hry na mapě: ZAP' : 'Zvýraznit hry na mapě: VYP'}
             </button>
 
             <p style={{ fontSize: '13px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '10px' }}>

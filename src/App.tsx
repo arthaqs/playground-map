@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { HomePage } from './components/HomePage';
 import { AdminPage } from './pages/AdminPage';
 import './styles/globals.css';

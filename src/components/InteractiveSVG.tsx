@@ -24,8 +24,7 @@ interface InteractiveSVGProps {
 
 export const InteractiveSVG: React.FC<InteractiveSVGProps> = ({
   zones, selectedZoneId, hoveredZoneId, onZoneClick, onZoneHover,
-  mapHoverOpacity = 0.35, mapSelectedOpacity = 0.55, mapIdleOpacity = 0.15,
-  mapStrokeWidth = 6, forceHighlight = false,
+  forceHighlight = false,
   colorYellow = DEFAULT_COLORS.yellow, colorGreen = DEFAULT_COLORS.purple,
   idleVisible = true,
 }) => {

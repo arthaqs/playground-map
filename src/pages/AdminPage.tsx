@@ -225,10 +225,6 @@ export const AdminPage: React.FC = () => {
     setDraggingIdx(null);
   }, [zonePolygons, points, isClosed]);
 
-  const removeZonePolygon = useCallback((idx: number, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setZonePolygons(prev => prev.filter((_, i) => i !== idx));
-  }, []);
 
   const handleSave = useCallback(() => {
     const currentValid = points.length >= 3 && (isEditing || isClosed);
@@ -263,9 +259,6 @@ export const AdminPage: React.FC = () => {
   const canSave = !!zoneName && totalPolygons >= 1;
 
   const pointsStr = points.map(p => `${p[0]},${p[1]}`).join(' ');
-  const previewStr = mousePos && points.length > 0 && !isClosed && !isEditing
-    ? [...points, mousePos].map(p => `${p[0]},${p[1]}`).join(' ')
-    : null;
 
   const inputStyle = (enabled: boolean): React.CSSProperties => ({
     display: 'block', width: '100%', marginTop: '6px', padding: '8px 12px',
