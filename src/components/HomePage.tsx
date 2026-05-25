@@ -50,7 +50,7 @@ export const HomePage: React.FC = () => {
 
   const [zoneCfgs] = useSyncedStorage<Record<string, ModalCfg>>('zone-modal-cfgs', {});
   const [peekZoneId, setPeekZoneId] = useState<string | null>(null);
-  const [showOutlines, setShowOutlines] = useState(true);
+  const [showOutlines, setShowOutlines] = useState(false);
 
   const peekZone = useCallback((zoneId: string) => setPeekZoneId(zoneId), []);
   const closePeek = useCallback(() => setPeekZoneId(null), []);
@@ -162,10 +162,25 @@ export const HomePage: React.FC = () => {
               </p>
               <button
                 onClick={() => setShowOutlines(v => !v)}
-                title={showOutlines ? 'Skrýt zóny na mapě' : 'Zobrazit zóny na mapě'}
-                style={{ background: 'none', border: `1px solid ${showOutlines ? 'var(--accent)' : 'var(--border)'}`, borderRadius: '4px', color: showOutlines ? 'var(--accent)' : 'var(--text-muted)', fontSize: '14px', cursor: 'pointer', padding: '3px 9px', lineHeight: 1.5 }}
+                style={{
+                  background: showOutlines ? 'rgba(232,165,64,0.10)' : 'none',
+                  border: `2px solid ${showOutlines ? 'var(--accent)' : 'var(--border)'}`,
+                  borderRadius: '8px',
+                  color: showOutlines ? 'var(--accent)' : 'var(--text-muted)',
+                  fontSize: '13px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  padding: '8px 12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  width: '100%',
+                  justifyContent: 'center',
+                  marginBottom: '4px',
+                }}
               >
-                {showOutlines ? '👁' : '🙈'}
+                <span style={{ fontSize: '16px' }}>{showOutlines ? '👁' : '🙈'}</span>
+                {showOutlines ? 'Zvýraznit hry: ZAP' : 'Zvýraznit hry: VYP'}
               </button>
             </div>
             {zones.map(zone => {
